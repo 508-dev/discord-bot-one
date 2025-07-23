@@ -8,15 +8,14 @@ import discord
 
 from email.header import decode_header
 
-BOT_TOKEN = "MTM4MjYxNTY2NzM3MDM2NDkzOQ.G-p3Wk.gSifQ3rmCluB-IPJhG01mmJzOsK8WQDLXtYMmE"
+BOT_TOKEN = "{{environment.DISCORD_BOT_TOKEN}}"
 CHANNEL_ID = 1391742724666822798
 MAX_SESSION_TIME_MINUTES = 2
 CHECK_EMAIL_WAIT = 2
-EMAIL_USERNAME = "daniel@508.dev"
-EMAIL_PASSWORD = "PASSWORD"
+EMAIL_USERNAME = "{{environment.EMAIL_USERNAME}}"
+EMAIL_PASSWORD = "{{environment.EMAIL_PASSWORD}}"
 imap_server = "imap.migadu.com"
 smtp_server = "smtp.migadu.com"
-    
 
 bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 
