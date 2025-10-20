@@ -87,7 +87,11 @@ async def task_poll_inbox():
                             for line in wrap(body, width=discord_sendmsg_character_limit-1):
                                 await channel.send(line)
                         if content_type == "text/html":
-                            print("html case")  
+                            print("html case")
+                            print(body)
+                            await channel.send("**BODY**:")
+                            for line in wrap(body, width=discord_sendmsg_character_limit-1):
+                                await channel.send(line)  
                     print("="*100)
                     await channel.send("="*71)
 
