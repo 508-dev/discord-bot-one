@@ -5,15 +5,16 @@ from dataclasses import dataclass
 import imaplib
 import email
 import discord
+import os
 
 from email.header import decode_header
 
-BOT_TOKEN = "{{environment.DISCORD_BOT_TOKEN}}"
+BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 CHANNEL_ID = 1391742724666822798
 MAX_SESSION_TIME_MINUTES = 2
 CHECK_EMAIL_WAIT = 2
-EMAIL_USERNAME = "{{environment.EMAIL_USERNAME}}"
-EMAIL_PASSWORD = "{{environment.EMAIL_PASSWORD}}"
+EMAIL_USERNAME = os.getenv("EMAIL_USERNAME")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 imap_server = "imap.migadu.com"
 smtp_server = "smtp.migadu.com"
 
@@ -103,5 +104,8 @@ async def st(ctx):
 async def is_running(ctx):
     await ctx.send(f"Inbox polling task *{'is' if task_poll_inbox.is_running() else 'isn\'t'}* running")
 
-print("DISCORD_BOT_TOKEN: ", {{environment.DISCORD_BOT_TOKEN}})
+print("DISCORD_BOT_TOKEN: ", os.getenv("DISCORD_BOT_TOKEN"))
+print("EMAIL_USERNAME: ", os.getenv("EMAIL_USERNAME"))
+print("EMAIL_PASSWORD: ", os.getenv("EMAIL_PASSWORD"))
+print("Discord variable: ", BOT_TOKEN)
 bot.run(BOT_TOKEN)
