@@ -18,6 +18,7 @@ EMAIL_USERNAME = os.getenv("EMAIL_USERNAME")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 imap_server = "imap.migadu.com"
 smtp_server = "smtp.migadu.com"
+discord_sendmsg_character_limit = 2000
 
 bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 
@@ -69,7 +70,7 @@ async def task_poll_inbox():
                                 # print text/plain emails and skip attachments
                                 print(wrap(body, width=3900))
                                 await channel.send("**BODY**:")
-                                for line in wrap(body, width=3900):
+                                for line in wrap(body, width=discord_sendmsg_character_limit-1):
                                     await channel.send(line)
                             elif "attachment" in content_disposition:
                                 # download attachment
@@ -83,7 +84,7 @@ async def task_poll_inbox():
                             # print only text email parts
                             print(body)
                             await channel.send("**BODY**:")
-                            for line in wrap(body, width=3900):
+                            for line in wrap(body, width=discord_sendmsg_character_limit-1):
                                 await channel.send(line)
                         if content_type == "text/html":
                             print("html case")  
