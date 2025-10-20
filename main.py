@@ -107,8 +107,9 @@ async def task_poll_inbox():
 
 @bot.command()
 async def st(ctx):
-    task_poll_inbox.start()
     await ctx.send(f"Polling for emails every {CHECK_EMAIL_WAIT} minutes")
+    task_poll_inbox.start()
+
 
 @bot.command()
 async def is_running(ctx):
