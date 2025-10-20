@@ -1,6 +1,7 @@
 from discord.ext import commands, tasks
 from datetime import datetime
 from dataclasses import dataclass
+from textwrap import wrap
 
 import imaplib
 import email
@@ -66,8 +67,10 @@ async def task_poll_inbox():
                                 pass
                             if content_type == "text/plain" and "attachment" not in content_disposition:
                                 # print text/plain emails and skip attachments
-                                print(body)
-                                await channel.send(f"**BODY**: {body}")
+                                print(wrap(body, width=3900))
+                                await channel.send("**BODY**:")
+                                for line in wrap(body, width=3900):
+                                    await channel.send(line)
                             elif "attachment" in content_disposition:
                                 # download attachment
                                 print("attachment case")
@@ -79,7 +82,9 @@ async def task_poll_inbox():
                         if content_type == "text/plain":
                             # print only text email parts
                             print(body)
-                            await channel.send(f"**BODY**: {body}")
+                            await channel.send("**BODY**:")
+                            for line in wrap(body, width=3900):
+                                await channel.send(line)
                         if content_type == "text/html":
                             print("html case")  
                     print("="*100)
@@ -104,8 +109,4 @@ async def st(ctx):
 async def is_running(ctx):
     await ctx.send(f"Inbox polling task *{'is' if task_poll_inbox.is_running() else 'isn\'t'}* running")
 
-print("DISCORD_BOT_TOKEN: ", os.getenv("DISCORD_BOT_TOKEN"))
-print("EMAIL_USERNAME: ", os.getenv("EMAIL_USERNAME"))
-print("EMAIL_PASSWORD: ", os.getenv("EMAIL_PASSWORD"))
-print("Discord variable: ", BOT_TOKEN)
 bot.run(BOT_TOKEN)
