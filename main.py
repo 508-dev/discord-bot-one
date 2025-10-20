@@ -103,4 +103,5 @@ async def st(ctx):
 async def is_running(ctx):
     await ctx.send(f"Inbox polling task *{'is' if task_poll_inbox.is_running() else 'isn\'t'}* running")
 
+print(BOT_TOKEN)
 bot.run(BOT_TOKEN)
