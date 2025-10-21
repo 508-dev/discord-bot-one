@@ -86,7 +86,7 @@ class TestBot508:
         mock_user.__str__ = Mock(return_value="TestBot")
 
         with patch.object(bot, "get_channel", return_value=mock_discord_channel):
-            with patch.object(type(bot), 'user', new_callable=lambda: mock_user):
+            with patch.object(type(bot), "user", new_callable=lambda: mock_user):
                 await bot.on_ready()
 
                 mock_discord_channel.send.assert_called_once()
@@ -97,6 +97,7 @@ class TestBot508:
     async def test_on_ready_handles_missing_channel(self, caplog):
         """Test that on_ready handles missing channel gracefully."""
         import logging
+
         caplog.set_level(logging.INFO)
 
         bot = Bot508()
@@ -104,7 +105,7 @@ class TestBot508:
         mock_user.__str__ = Mock(return_value="TestBot")
 
         with patch.object(bot, "get_channel", return_value=None):
-            with patch.object(type(bot), 'user', new_callable=lambda: mock_user):
+            with patch.object(type(bot), "user", new_callable=lambda: mock_user):
                 # Should not raise an exception
                 await bot.on_ready()
 

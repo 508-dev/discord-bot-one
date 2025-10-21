@@ -142,9 +142,7 @@ class EmailMonitor(commands.Cog):
                         typ, data = mail.store(num.decode(), "+FLAGS", "\\Seen")
 
         msg_count = len(messages[0].split()) if messages[0] else 0
-        logger.debug(
-            "Login complete, # of new messages: " + str(msg_count)
-        )
+        logger.debug("Login complete, # of new messages: " + str(msg_count))
 
         # close the connection and logout
         mail.close()

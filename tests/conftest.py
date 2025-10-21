@@ -19,7 +19,6 @@ def event_loop():
     loop.close()
 
 
-
 @pytest.fixture
 def mock_bot():
     """Create a mock Discord bot for testing."""
