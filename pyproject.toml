@@ -2,7 +2,7 @@
 name = "discord-bot-one"
 version = "0.1.0"
 description = "Discord bot for email monitoring"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 dependencies = [
     "discord.py~=2.6.0",
     "pydantic~=2.10",
