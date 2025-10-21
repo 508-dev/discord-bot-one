@@ -2,6 +2,11 @@
 
 This guide covers environment setup, development workflow, and contribution guidelines for the 508.dev Discord bot.
 
+📖 **Quick Links:**
+- [Main README](README.md) - Project overview and quick start
+- [AI Agent Documentation](AGENTS.md) - Guidelines for AI-assisted development
+- [Example Cog](bot/cogs/example_cog.py) - Template for creating new features
+
 ## Environment Setup
 
 ### Prerequisites

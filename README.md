@@ -31,16 +31,16 @@ discord-bot-one/
 
 ## Current Features
 
-### Email Monitor (`bot/features/email_monitor.py`)
+### Email Monitor ([`bot/cogs/email_monitor.py`](bot/cogs/email_monitor.py))
 - Polls IMAP email inbox for new messages
 - Posts new emails to designated Discord channel
 - Commands: `!st` (start), `!is_running` (status)
 
-### Example Feature (`bot/features/example_feature.py`)
+### Example Cog ([`bot/cogs/example_cog.py`](bot/cogs/example_cog.py))
 - Template showing common patterns
 - Basic commands: `!hello`, `!ping`, `!info`
 - Event listener example (member join)
-- Use as starting point for new features
+- Use as starting point for new cogs
 
 ## Quick Start (Local Development)
 
@@ -91,11 +91,11 @@ Optional (with defaults):
 
 ## Adding New Features
 
-The bot automatically loads all feature files from `bot/features/`. To add new functionality:
+The bot automatically loads all cog files from `bot/cogs/`. To add new functionality:
 
-1. Copy the example: `cp bot/features/example_feature.py bot/features/my_feature.py`
+1. Copy the example: `cp bot/cogs/example_cog.py bot/cogs/my_cog.py`
 2. Modify the class name and add your commands
-3. Restart the bot - your feature loads automatically
+3. Restart the bot - your cog loads automatically
 
 Each feature is implemented as a Discord.py "Cog" (framework term) that can include:
 - **Commands** (`@commands.command()`)
@@ -111,19 +111,23 @@ Each feature is implemented as a Discord.py "Cog" (framework term) that can incl
 - **Clean Separation**: Configuration, core bot logic, and features are separate
 - **Easy Testing**: Individual features can be developed and tested independently
 
-## Documentation
+## Developing
 
-- **DEVELOPMENT.md** - Development environment setup and coding guidelines
-- **AGENTS.md** - Documentation for AI agents working on this project
-- **bot/features/example_feature.py** - Well-commented template for new features
+For contributors and developers working on the bot:
+
+📖 **[Development Guide](DEVELOPMENT.md)** - Complete setup instructions, coding guidelines, testing, and contribution workflow
+
+📜 **[AI Agent Documentation](AGENTS.md)** - Guidelines for using AI assistants in development
+
+🔧 **[Example Cog](bot/cogs/example_cog.py)** - Well-commented template for creating new features
 
 ## Contributing
 
-See `DEVELOPMENT.md` for development setup, coding guidelines, and contribution workflow.
+See **[DEVELOPMENT.md](DEVELOPMENT.md)** for development setup, coding guidelines, and contribution workflow.
 
 ## Tech Stack
 
-- **Python 3.8+**
+- **Python 3.12+**
 - **discord.py** - Discord API wrapper
 - **Pydantic** - Settings management and validation
 - **uv** - Package management

@@ -2,6 +2,11 @@
 
 This document provides specific guidance for AI agents working on the 508.dev Discord bot project.
 
+📖 **Quick Links:**
+- [Main README](README.md) - Project overview and architecture
+- [Development Guide](DEVELOPMENT.md) - Setup instructions and coding guidelines
+- [Example Cog](bot/cogs/example_cog.py) - Template for new features
+
 ## Project Context
 
 This is a **Discord bot** for the 508.dev cooperative.
