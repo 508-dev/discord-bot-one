@@ -5,12 +5,9 @@ This module contains the core Bot508 class that handles cog loading,
 Discord events, and provides the factory function for bot creation.
 """
 
-import asyncio
-import os
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
 import discord
 from discord.ext import commands
 

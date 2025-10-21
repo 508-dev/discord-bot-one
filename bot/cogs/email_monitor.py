@@ -9,11 +9,8 @@ and provides commands to start/stop monitoring and check status.
 import imaplib
 import email
 import logging
-from datetime import datetime
 from textwrap import wrap
-from typing import Optional, Any, Tuple, List
 from discord.ext import commands, tasks
-from email.header import decode_header
 import discord
 
 from bot.config import settings
@@ -65,7 +62,7 @@ class EmailMonitor(commands.Cog):
                         logger.debug(f"From: {original['From']}")
                         logger.debug(f"Subject: {original['Subject']}")
                         logger.debug(f"Received: {received}")
-                        await channel.send(f"{"=" * 30} Message {idx+1} of {str(len(messages[0].split()))} {"=" * 30}")
+                        await channel.send(f"{'=' * 30} Message {idx+1} of {str(len(messages[0].split()))} {'=' * 30}")
                         await channel.send(f"**FROM:** {original['From']}\n**SUBJECT:** {original['Subject']} \n**RECEIVED:** {received}")
                         if original.is_multipart():
                             # iterate over email parts

@@ -31,6 +31,8 @@ jobs:
         echo "EMAIL_USERNAME=test@example.com" >> $GITHUB_ENV
         echo "EMAIL_PASSWORD=test_password" >> $GITHUB_ENV
         echo "CHANNEL_ID=123456789" >> $GITHUB_ENV
+        echo "IMAP_SERVER=imap.test.com" >> $GITHUB_ENV
+        echo "SMTP_SERVER=smtp.test.com" >> $GITHUB_ENV
 
     - name: Run tests with pytest
       run: |
