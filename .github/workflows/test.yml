@@ -1,0 +1,138 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Set up Python 3.12
+      run: uv python install 3.12
+
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras
+
+    - name: Set environment variables for tests
+      run: |
+        echo "DISCORD_BOT_TOKEN=test_token_for_ci" >> $GITHUB_ENV
+        echo "EMAIL_USERNAME=test@example.com" >> $GITHUB_ENV
+        echo "EMAIL_PASSWORD=test_password" >> $GITHUB_ENV
+        echo "CHANNEL_ID=123456789" >> $GITHUB_ENV
+        echo "IMAP_SERVER=imap.test.com" >> $GITHUB_ENV
+        echo "SMTP_SERVER=smtp.test.com" >> $GITHUB_ENV
+
+    - name: Run tests with pytest
+      run: |
+        uv run pytest tests/ -v --tb=short
+
+    - name: Run tests with coverage
+      run: |
+        uv run coverage run -m pytest tests/
+        uv run coverage report
+        uv run coverage xml
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Set up Python
+      run: uv python install 3.12
+
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras
+        uv add --dev ruff mypy
+
+    - name: Run ruff linter
+      run: |
+        uv run ruff check bot/ tests/
+
+    - name: Run ruff formatter
+      run: |
+        uv run ruff format --check bot/ tests/
+
+    - name: Run mypy type checker
+      run: |
+        uv run mypy bot/ --ignore-missing-imports
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Set up Python
+      run: uv python install 3.12
+
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras
+        uv add --dev bandit safety
+
+    - name: Run bandit security linter
+      run: |
+        uv run bandit -r bot/ -f json -o bandit-report.json || true
+
+    - name: Run safety check
+      run: |
+        uv run safety check --json --output safety-report.json || true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  # Status check for PRs - ensures all tests pass before merge
+  all-tests-passed:
+    if: always()
+    needs: [test, lint, security]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check all jobs
+      run: |
+        if [[ "${{ needs.test.result }}" != "success" ]]; then
+          echo "Tests failed"
+          exit 1
+        fi
+        if [[ "${{ needs.lint.result }}" != "success" ]]; then
+          echo "Linting failed"
+          exit 1
+        fi
+        if [[ "${{ needs.security.result }}" != "success" ]]; then
+          echo "Security checks failed"
+          exit 1
+        fi
+        echo "All checks passed!"
