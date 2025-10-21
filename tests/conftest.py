@@ -8,7 +8,7 @@ from unittest.mock import Mock, AsyncMock
 from discord.ext import commands
 import discord
 
-from bot.config import Settings
+# Config tests removed - no need to import Settings
 
 
 @pytest.fixture(scope="session")

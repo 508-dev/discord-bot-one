@@ -5,6 +5,7 @@ Unit tests for the main bot class.
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 from pathlib import Path
+import discord
 
 from bot.bot import Bot508, create_bot
 
@@ -22,7 +23,7 @@ class TestBot508:
         bot = Bot508()
 
         assert bot.command_prefix == "!"
-        assert bot.intents.all() is True
+        assert bot.intents.value == discord.Intents.all().value
 
     @pytest.mark.asyncio
     async def test_setup_hook_calls_load_extensions(self):
@@ -56,10 +57,10 @@ class TestBot508:
                 await bot.load_extensions()
 
                 # Should only load test_feature.py, not __init__.py
-                mock_load_ext.assert_called_once_with("bot.features.test_feature")
+                mock_load_ext.assert_called_once_with("bot.cogs.test_feature")
 
     @pytest.mark.asyncio
-    async def test_load_extensions_handles_errors(self, capfd):
+    async def test_load_extensions_handles_errors(self, caplog):
         """Test that load_extensions handles loading errors gracefully."""
         bot = Bot508()
 
@@ -73,35 +74,38 @@ class TestBot508:
             ):
                 await bot.load_extensions()
 
-                # Check that error was printed (not raised)
-                captured = capfd.readouterr()
-                assert "Failed to load feature" in captured.out
-                assert "broken_feature" in captured.out
+                # Check that error was logged (not raised)
+                assert "Failed to load cog" in caplog.text
+                assert "broken_feature" in caplog.text
 
     @pytest.mark.asyncio
     async def test_on_ready_sends_activation_message(self, mock_discord_channel):
         """Test that on_ready sends activation message to channel."""
         bot = Bot508()
-        bot.user = Mock()
-        bot.user.__str__ = Mock(return_value="TestBot")
+        mock_user = Mock()
+        mock_user.__str__ = Mock(return_value="TestBot")
 
         with patch.object(bot, "get_channel", return_value=mock_discord_channel):
-            await bot.on_ready()
+            with patch.object(type(bot), 'user', new_callable=lambda: mock_user):
+                await bot.on_ready()
 
-            mock_discord_channel.send.assert_called_once()
-            call_args = mock_discord_channel.send.call_args[0][0]
-            assert "508.dev Bot activated" in call_args
+                mock_discord_channel.send.assert_called_once()
+                call_args = mock_discord_channel.send.call_args[0][0]
+                assert "508.dev Bot activated" in call_args
 
     @pytest.mark.asyncio
-    async def test_on_ready_handles_missing_channel(self, capfd):
+    async def test_on_ready_handles_missing_channel(self, caplog):
         """Test that on_ready handles missing channel gracefully."""
+        import logging
+        caplog.set_level(logging.INFO)
+
         bot = Bot508()
-        bot.user = Mock()
-        bot.user.__str__ = Mock(return_value="TestBot")
+        mock_user = Mock()
+        mock_user.__str__ = Mock(return_value="TestBot")
 
         with patch.object(bot, "get_channel", return_value=None):
-            # Should not raise an exception
-            await bot.on_ready()
+            with patch.object(type(bot), 'user', new_callable=lambda: mock_user):
+                # Should not raise an exception
+                await bot.on_ready()
 
-            captured = capfd.readouterr()
-            assert "ready for 508.dev" in captured.out
+                assert "ready for 508.dev" in caplog.text

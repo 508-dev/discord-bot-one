@@ -5,6 +5,7 @@ This module uses Pydantic settings to handle environment variables
 and configuration with type validation and default values.
 """
 
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -26,8 +27,7 @@ class Settings(BaseSettings):
     smtp_server: str
     discord_sendmsg_character_limit: int = 2000
 
-    class Config:
-        env_file = ".env"
+    model_config = ConfigDict(env_file=".env")
 
 
 settings = Settings()  # type: ignore[call-arg]

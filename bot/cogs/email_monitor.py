@@ -161,9 +161,8 @@ class EmailMonitor(commands.Cog):
     @commands.command()
     async def is_running(self, ctx: commands.Context) -> None:
         """Check if email polling task is running."""
-        await ctx.send(
-            f"Inbox polling task *{'is' if self.task_poll_inbox.is_running() else "isn't"}* running"
-        )
+        status = "is" if self.task_poll_inbox.is_running() else "isn't"
+        await ctx.send(f"Inbox polling task *{status}* running")
 
 
 async def setup(bot: commands.Bot) -> None:
