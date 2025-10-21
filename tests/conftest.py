@@ -19,21 +19,6 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture
-def mock_settings():
-    """Mock settings for testing."""
-    return Settings(
-        discord_bot_token="test_token",
-        channel_id=123456789,
-        email_username="test@example.com",
-        email_password="test_password",
-        imap_server="imap.test.com",
-        smtp_server="smtp.test.com",
-        check_email_wait=1,
-        max_session_time_minutes=1,
-        discord_sendmsg_character_limit=100,
-    )
-
 
 @pytest.fixture
 def mock_bot():
