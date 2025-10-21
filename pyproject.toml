@@ -4,19 +4,19 @@ version = "0.1.0"
 description = "Discord bot for email monitoring"
 requires-python = ">=3.8"
 dependencies = [
-    "discord.py",
-    "pydantic",
-    "pydantic-settings",
+    "discord.py~=2.6.0",
+    "pydantic~=2.10",
+    "pydantic-settings~=2.8",
 ]
 
 [tool.uv]
 dev-dependencies = [
-    "pytest",
-    "pytest-asyncio",
-    "pytest-mock",
-    "coverage",
-    "ruff",
-    "mypy",
+    "pytest~=8.3",
+    "pytest-asyncio~=0.24.0",
+    "pytest-mock~=3.14",
+    "coverage~=7.6",
+    "ruff~=0.14.0",
+    "mypy~=1.14",
 ]
 
 [tool.pytest.ini_options]
