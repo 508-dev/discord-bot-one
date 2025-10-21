@@ -25,11 +25,12 @@ class EmailMonitor(commands.Cog):
     This cog automatically starts monitoring when loaded and provides commands
     for manual control of the monitoring process.
     """
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.task_poll_inbox.start()
 
-    def cog_unload(self) -> None:
+    async def cog_unload(self) -> None:
         """Cancel the background task when cog is unloaded."""
         self.task_poll_inbox.cancel()
 
@@ -49,37 +50,60 @@ class EmailMonitor(commands.Cog):
 
         status, messages = mail.select("INBOX")
         # get unseen messages
-        (retcode, messages) = mail.search(None, '(UNSEEN)')
-        if retcode == 'OK':
+        (retcode, messages) = mail.search(None, "(UNSEEN)")
+        if retcode == "OK" and messages[0]:
             for idx, num in enumerate(messages[0].split()):
-                typ, data = mail.fetch(num,'(RFC822)')
+                typ, data = mail.fetch(num.decode(), "(RFC822)")
                 for response_part in data:
                     if isinstance(response_part, tuple):
-                        original = email.message_from_string(response_part[1].decode('utf-8'))
-                        received = original['Received']
-                        received = received.split(";")[-1]
+                        original = email.message_from_string(
+                            response_part[1].decode("utf-8")
+                        )
+                        received = original["Received"]
+                        if received:
+                            received = received.split(";")[-1]
+                        else:
+                            received = "Unknown"
 
                         logger.debug(f"From: {original['From']}")
                         logger.debug(f"Subject: {original['Subject']}")
                         logger.debug(f"Received: {received}")
-                        await channel.send(f"{'=' * 30} Message {idx+1} of {str(len(messages[0].split()))} {'=' * 30}")
-                        await channel.send(f"**FROM:** {original['From']}\n**SUBJECT:** {original['Subject']} \n**RECEIVED:** {received}")
+                        msg_count = len(messages[0].split()) if messages[0] else 0
+                        await channel.send(
+                            f"{'=' * 30} Message {idx + 1} of {msg_count} {'=' * 30}"
+                        )
+                        await channel.send(
+                            f"**FROM:** {original['From']}\n**SUBJECT:** {original['Subject']} \n**RECEIVED:** {received}"
+                        )
                         if original.is_multipart():
                             # iterate over email parts
                             for part in original.walk():
                                 # extract content type of email
                                 content_type = part.get_content_type()
-                                content_disposition = str(part.get("Content-Disposition"))
+                                content_disposition = str(
+                                    part.get("Content-Disposition")
+                                )
                                 try:
                                     # get the email body
-                                    body = part.get_payload(decode=True).decode()
-                                except:
-                                    pass
-                                if content_type == "text/plain" and "attachment" not in content_disposition:
+                                    payload = part.get_payload(decode=True)
+                                    if isinstance(payload, bytes):
+                                        body = payload.decode()
+                                    else:
+                                        continue
+                                except Exception:
+                                    continue
+                                if (
+                                    content_type == "text/plain"
+                                    and "attachment" not in content_disposition
+                                ):
                                     # logger.debug text/plain emails and skip attachments
                                     logger.debug(wrap(body, width=3900))
                                     await channel.send("**BODY**:")
-                                    for line in wrap(body, width=settings.discord_sendmsg_character_limit-1):
+                                    for line in wrap(
+                                        body,
+                                        width=settings.discord_sendmsg_character_limit
+                                        - 1,
+                                    ):
                                         await channel.send(line)
                                 elif "attachment" in content_disposition:
                                     # download attachment
@@ -88,26 +112,39 @@ class EmailMonitor(commands.Cog):
                             # extract content type of email
                             content_type = original.get_content_type()
                             # get the email body
-                            body = original.get_payload(decode=True).decode()
+                            payload = original.get_payload(decode=True)
+                            if isinstance(payload, bytes):
+                                body = payload.decode()
+                            else:
+                                continue
                             if content_type == "text/plain":
                                 # logger.debug only text email parts
                                 logger.debug(body)
                                 await channel.send("**BODY**:")
-                                for line in wrap(body, width=settings.discord_sendmsg_character_limit-1):
+                                for line in wrap(
+                                    body,
+                                    width=settings.discord_sendmsg_character_limit - 1,
+                                ):
                                     await channel.send(line)
                             if content_type == "text/html":
                                 logger.debug("html case")
                                 logger.debug(body)
                                 await channel.send("**BODY**:")
-                                for line in wrap(body, width=settings.discord_sendmsg_character_limit-1):
+                                for line in wrap(
+                                    body,
+                                    width=settings.discord_sendmsg_character_limit - 1,
+                                ):
                                     await channel.send(line)
-                        logger.debug("="*100)
-                        await channel.send("="*71)
+                        logger.debug("=" * 100)
+                        await channel.send("=" * 71)
 
                         # mark the mail as seen so it doesn't come up again
-                        typ, data = mail.store(num,'+FLAGS','\\Seen')
+                        typ, data = mail.store(num.decode(), "+FLAGS", "\\Seen")
 
-        logger.debug("Login complete, # of new messages: " + str(len(messages[0].split())))
+        msg_count = len(messages[0].split()) if messages[0] else 0
+        logger.debug(
+            "Login complete, # of new messages: " + str(msg_count)
+        )
 
         # close the connection and logout
         mail.close()
@@ -124,7 +161,9 @@ class EmailMonitor(commands.Cog):
     @commands.command()
     async def is_running(self, ctx: commands.Context) -> None:
         """Check if email polling task is running."""
-        await ctx.send(f"Inbox polling task *{'is' if self.task_poll_inbox.is_running() else 'isn\'t'}* running")
+        await ctx.send(
+            f"Inbox polling task *{'is' if self.task_poll_inbox.is_running() else "isn't"}* running"
+        )
 
 
 async def setup(bot: commands.Bot) -> None:

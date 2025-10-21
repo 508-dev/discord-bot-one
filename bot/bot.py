@@ -23,6 +23,7 @@ class Bot508(commands.Bot):
     This bot automatically loads all cogs from the cogs directory
     and provides enhanced functionality for the 508.dev cooperative.
     """
+
     def __init__(self) -> None:
         intents = discord.Intents.all()
         super().__init__(command_prefix="!", intents=intents)
@@ -48,7 +49,9 @@ class Bot508(commands.Bot):
         logger.info(f"Hello {self.user} ready for 508.dev!")
         channel = self.get_channel(settings.channel_id)
         if channel and isinstance(channel, discord.abc.Messageable):
-            await channel.send(f"🤖 508.dev Bot activated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            await channel.send(
+                f"🤖 508.dev Bot activated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
 
 
 def create_bot() -> Bot508:

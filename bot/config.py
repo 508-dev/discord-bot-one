@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     All settings can be overridden via environment variables.
     Required settings must be provided via environment variables or .env file.
     """
+
     discord_bot_token: str
     channel_id: int
     max_session_time_minutes: int = 2
@@ -29,4 +30,4 @@ class Settings(BaseSettings):
         env_file = ".env"
 
 
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]

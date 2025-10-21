@@ -29,7 +29,7 @@ class TestBot508:
         """Test that setup_hook calls load_extensions."""
         bot = Bot508()
 
-        with patch.object(bot, 'load_extensions', new_callable=AsyncMock) as mock_load:
+        with patch.object(bot, "load_extensions", new_callable=AsyncMock) as mock_load:
             await bot.setup_hook()
             mock_load.assert_called_once()
 
@@ -49,8 +49,10 @@ class TestBot508:
 
         mock_features_dir.glob.return_value = [mock_file1, mock_file2]
 
-        with patch.object(Path, 'glob', return_value=[mock_file1, mock_file2]):
-            with patch.object(bot, 'load_extension', new_callable=AsyncMock) as mock_load_ext:
+        with patch.object(Path, "glob", return_value=[mock_file1, mock_file2]):
+            with patch.object(
+                bot, "load_extension", new_callable=AsyncMock
+            ) as mock_load_ext:
                 await bot.load_extensions()
 
                 # Should only load test_feature.py, not __init__.py
@@ -65,8 +67,10 @@ class TestBot508:
         mock_file.name = "broken_feature.py"
         mock_file.stem = "broken_feature"
 
-        with patch.object(Path, 'glob', return_value=[mock_file]):
-            with patch.object(bot, 'load_extension', side_effect=Exception("Load error")):
+        with patch.object(Path, "glob", return_value=[mock_file]):
+            with patch.object(
+                bot, "load_extension", side_effect=Exception("Load error")
+            ):
                 await bot.load_extensions()
 
                 # Check that error was printed (not raised)
@@ -81,7 +85,7 @@ class TestBot508:
         bot.user = Mock()
         bot.user.__str__ = Mock(return_value="TestBot")
 
-        with patch.object(bot, 'get_channel', return_value=mock_discord_channel):
+        with patch.object(bot, "get_channel", return_value=mock_discord_channel):
             await bot.on_ready()
 
             mock_discord_channel.send.assert_called_once()
@@ -95,7 +99,7 @@ class TestBot508:
         bot.user = Mock()
         bot.user.__str__ = Mock(return_value="TestBot")
 
-        with patch.object(bot, 'get_channel', return_value=None):
+        with patch.object(bot, "get_channel", return_value=None):
             # Should not raise an exception
             await bot.on_ready()
 

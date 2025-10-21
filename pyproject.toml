@@ -9,12 +9,14 @@ dependencies = [
     "pydantic-settings",
 ]
 
-[project.optional-dependencies]
-dev = [
+[tool.uv]
+dev-dependencies = [
     "pytest",
     "pytest-asyncio",
     "pytest-mock",
     "coverage",
+    "ruff",
+    "mypy",
 ]
 
 [tool.pytest.ini_options]

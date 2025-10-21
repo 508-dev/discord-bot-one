@@ -3,7 +3,6 @@ Unit tests for the example cog.
 """
 
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
 
 from bot.cogs.example_cog import ExampleCog
 
@@ -50,7 +49,9 @@ class TestExampleCog:
         assert "embed" in call_kwargs
 
     @pytest.mark.asyncio
-    async def test_on_member_join_sends_welcome(self, cog, mock_discord_member, mock_discord_channel):
+    async def test_on_member_join_sends_welcome(
+        self, cog, mock_discord_member, mock_discord_channel
+    ):
         """Test that on_member_join sends welcome message."""
         cog.bot.get_channel.return_value = mock_discord_channel
 
@@ -77,6 +78,6 @@ class TestExampleCog:
         await setup(mock_bot)
 
         mock_bot.add_cog.assert_called_once()
-        # Check that an ExampleFeature instance was added
+        # Check that an ExampleCog instance was added
         added_cog = mock_bot.add_cog.call_args[0][0]
-        assert isinstance(added_cog, ExampleFeature)
+        assert isinstance(added_cog, ExampleCog)

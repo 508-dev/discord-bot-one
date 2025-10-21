@@ -3,11 +3,10 @@ Integration tests for email monitoring feature.
 """
 
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, patch
 import imaplib
-import email
 
-from bot.features.email_monitor import EmailMonitor
+from bot.cogs.email_monitor import EmailMonitor
 
 
 class TestEmailMonitorIntegration:
@@ -17,7 +16,9 @@ class TestEmailMonitorIntegration:
     def email_monitor(self, mock_bot):
         """Create an EmailMonitor instance for testing."""
         # Mock the task starting to avoid actual background task
-        with patch.object(EmailMonitor, '__init__', lambda self, bot: setattr(self, 'bot', bot)):
+        with patch.object(
+            EmailMonitor, "__init__", lambda self, bot: setattr(self, "bot", bot)
+        ):
             monitor = EmailMonitor(mock_bot)
             monitor.task_poll_inbox = Mock()
             monitor.task_poll_inbox.start = Mock()
@@ -35,7 +36,9 @@ class TestEmailMonitorIntegration:
         assert "Polling for emails" in call_args
 
     @pytest.mark.asyncio
-    async def test_is_running_command_shows_status(self, email_monitor, mock_discord_context):
+    async def test_is_running_command_shows_status(
+        self, email_monitor, mock_discord_context
+    ):
         """Test that is_running command shows correct status."""
         # Test when not running
         email_monitor.task_poll_inbox.is_running.return_value = False
@@ -52,12 +55,14 @@ class TestEmailMonitorIntegration:
         assert "is" in call_args and "isn't" not in call_args
 
     @pytest.mark.asyncio
-    async def test_poll_inbox_with_no_messages(self, email_monitor, mock_discord_channel, mock_imap_server):
+    async def test_poll_inbox_with_no_messages(
+        self, email_monitor, mock_discord_channel, mock_imap_server
+    ):
         """Test polling inbox when there are no new messages."""
         email_monitor.bot.get_channel.return_value = mock_discord_channel
         mock_imap_server.search.return_value = ("OK", [b""])
 
-        with patch('imaplib.IMAP4_SSL', return_value=mock_imap_server):
+        with patch("imaplib.IMAP4_SSL", return_value=mock_imap_server):
             await email_monitor.task_poll_inbox()
 
         # Should login and logout but not send any messages
@@ -66,7 +71,9 @@ class TestEmailMonitorIntegration:
         mock_discord_channel.send.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_poll_inbox_with_messages(self, email_monitor, mock_discord_channel, mock_imap_server, mock_email_message):
+    async def test_poll_inbox_with_messages(
+        self, email_monitor, mock_discord_channel, mock_imap_server, mock_email_message
+    ):
         """Test polling inbox with new messages."""
         email_monitor.bot.get_channel.return_value = mock_discord_channel
 
@@ -80,24 +87,30 @@ Test email body content
 """
         mock_imap_server.fetch.return_value = ("OK", [(None, mock_raw_email)])
 
-        with patch('imaplib.IMAP4_SSL', return_value=mock_imap_server):
+        with patch("imaplib.IMAP4_SSL", return_value=mock_imap_server):
             await email_monitor.task_poll_inbox()
 
         # Should send messages to Discord
         assert mock_discord_channel.send.call_count > 0
 
         # Check that email details were sent
-        sent_messages = [call[0][0] for call in mock_discord_channel.send.call_args_list]
+        sent_messages = [
+            call[0][0] for call in mock_discord_channel.send.call_args_list
+        ]
         assert any("FROM:" in msg for msg in sent_messages)
         assert any("SUBJECT:" in msg for msg in sent_messages)
         assert any("BODY" in msg for msg in sent_messages)
 
     @pytest.mark.asyncio
-    async def test_poll_inbox_handles_imap_errors(self, email_monitor, mock_discord_channel, capfd):
+    async def test_poll_inbox_handles_imap_errors(
+        self, email_monitor, mock_discord_channel, capfd
+    ):
         """Test that IMAP errors are handled gracefully."""
         email_monitor.bot.get_channel.return_value = mock_discord_channel
 
-        with patch('imaplib.IMAP4_SSL', side_effect=imaplib.IMAP4.error("Connection failed")):
+        with patch(
+            "imaplib.IMAP4_SSL", side_effect=imaplib.IMAP4.error("Connection failed")
+        ):
             # Should not raise an exception
             try:
                 await email_monitor.task_poll_inbox()
@@ -106,7 +119,9 @@ Test email body content
                 assert isinstance(e, (imaplib.IMAP4.error, Exception))
 
     @pytest.mark.asyncio
-    async def test_poll_inbox_handles_email_parsing_errors(self, email_monitor, mock_discord_channel, mock_imap_server):
+    async def test_poll_inbox_handles_email_parsing_errors(
+        self, email_monitor, mock_discord_channel, mock_imap_server
+    ):
         """Test handling of malformed email messages."""
         email_monitor.bot.get_channel.return_value = mock_discord_channel
         mock_imap_server.search.return_value = ("OK", [b"1"])
@@ -114,7 +129,7 @@ Test email body content
         # Malformed email data
         mock_imap_server.fetch.return_value = ("OK", [(None, b"malformed email data")])
 
-        with patch('imaplib.IMAP4_SSL', return_value=mock_imap_server):
+        with patch("imaplib.IMAP4_SSL", return_value=mock_imap_server):
             # Should handle parsing errors gracefully
             try:
                 await email_monitor.task_poll_inbox()
@@ -132,7 +147,9 @@ Test email body content
         """Test the setup function adds the feature to the bot."""
         from bot.features.email_monitor import setup
 
-        with patch.object(EmailMonitor, '__init__', lambda self, bot: setattr(self, 'bot', bot)):
+        with patch.object(
+            EmailMonitor, "__init__", lambda self, bot: setattr(self, "bot", bot)
+        ):
             await setup(mock_bot)
 
         mock_bot.add_cog.assert_called_once()

@@ -2,7 +2,6 @@
 Pytest configuration and shared fixtures for the 508.dev Discord bot tests.
 """
 
-import os
 import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock
@@ -10,7 +9,6 @@ from discord.ext import commands
 import discord
 
 from bot.config import Settings
-from bot.bot import Bot508
 
 
 @pytest.fixture(scope="session")
@@ -33,7 +31,7 @@ def mock_settings():
         smtp_server="smtp.test.com",
         check_email_wait=1,
         max_session_time_minutes=1,
-        discord_sendmsg_character_limit=100
+        discord_sendmsg_character_limit=100,
     )
 
 
@@ -97,11 +95,13 @@ def mock_email_message():
     """Create a mock email message for testing."""
     message = Mock()
     message.is_multipart.return_value = False
-    message.__getitem__ = Mock(side_effect=lambda key: {
-        'From': 'test@example.com',
-        'Subject': 'Test Subject',
-        'Received': 'by server; Mon, 21 Oct 2024 12:00:00 +0000'
-    }.get(key))
+    message.__getitem__ = Mock(
+        side_effect=lambda key: {
+            "From": "test@example.com",
+            "Subject": "Test Subject",
+            "Received": "by server; Mon, 21 Oct 2024 12:00:00 +0000",
+        }.get(key)
+    )
     message.get_content_type.return_value = "text/plain"
     message.get_payload.return_value = Mock()
     message.get_payload.return_value.decode.return_value = "Test email body"

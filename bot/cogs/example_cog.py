@@ -34,11 +34,14 @@ class ExampleCog(commands.Cog):
         embed = discord.Embed(
             title="508.dev Bot Info",
             description="A modular Discord bot for the 508.dev cooperative",
-            color=0x00ff00
+            color=0x00FF00,
         )
-        embed.add_field(name="Server", value=ctx.guild.name, inline=True)
-        embed.add_field(name="Members", value=ctx.guild.member_count, inline=True)
-        embed.add_field(name="Bot Latency", value=f"{round(self.bot.latency * 1000)}ms", inline=True)
+        if ctx.guild:
+            embed.add_field(name="Server", value=ctx.guild.name, inline=True)
+            embed.add_field(name="Members", value=ctx.guild.member_count, inline=True)
+        embed.add_field(
+            name="Bot Latency", value=f"{round(self.bot.latency * 1000)}ms", inline=True
+        )
 
         await ctx.send(embed=embed)
 
