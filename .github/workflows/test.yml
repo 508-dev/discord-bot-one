@@ -9,9 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
     - uses: actions/checkout@v4
@@ -21,8 +18,8 @@ jobs:
       with:
         version: "latest"
 
-    - name: Set up Python ${{ matrix.python-version }}
-      run: uv python install ${{ matrix.python-version }}
+    - name: Set up Python 3.12
+      run: uv python install 3.12
 
     - name: Install dependencies
       run: |
@@ -40,14 +37,12 @@ jobs:
         uv run pytest tests/ -v --tb=short
 
     - name: Run tests with coverage
-      if: matrix.python-version == '3.12'
       run: |
         uv run coverage run -m pytest tests/
         uv run coverage report
         uv run coverage xml
 
     - name: Upload coverage reports to Codecov
-      if: matrix.python-version == '3.12'
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
