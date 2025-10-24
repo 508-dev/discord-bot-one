@@ -6,6 +6,7 @@ it to create new cogs for the 508.dev Discord bot.
 """
 
 from discord.ext import commands
+from discord import app_commands
 import discord
 
 from bot.config import settings
@@ -17,33 +18,33 @@ class ExampleCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    @commands.command(name="hello")
-    async def hello_command(self, ctx: commands.Context) -> None:
+    @app_commands.command(name="hello", description="Say hello and get a warm welcome!")
+    async def hello_command(self, interaction: discord.Interaction) -> None:
         """Simple hello command example."""
-        await ctx.send(f"Hello {ctx.author.mention}! Welcome to 508.dev!")
+        await interaction.response.send_message(f"Hello {interaction.user.mention}! Welcome to 508.dev!")
 
-    @commands.command(name="ping")
-    async def ping_command(self, ctx: commands.Context) -> None:
+    @app_commands.command(name="ping", description="Check the bot's latency")
+    async def ping_command(self, interaction: discord.Interaction) -> None:
         """Show bot latency."""
         latency = round(self.bot.latency * 1000)
-        await ctx.send(f"🏓 Pong! Latency: {latency}ms")
+        await interaction.response.send_message(f"🏓 Pong! Latency: {latency}ms")
 
-    @commands.command(name="info")
-    async def info_command(self, ctx: commands.Context) -> None:
+    @app_commands.command(name="info", description="Show bot and server information")
+    async def info_command(self, interaction: discord.Interaction) -> None:
         """Show bot and server information."""
         embed = discord.Embed(
             title="508.dev Bot Info",
             description="A modular Discord bot for the 508.dev cooperative",
             color=0x00FF00,
         )
-        if ctx.guild:
-            embed.add_field(name="Server", value=ctx.guild.name, inline=True)
-            embed.add_field(name="Members", value=ctx.guild.member_count, inline=True)
+        if interaction.guild:
+            embed.add_field(name="Server", value=interaction.guild.name, inline=True)
+            embed.add_field(name="Members", value=interaction.guild.member_count, inline=True)
         embed.add_field(
             name="Bot Latency", value=f"{round(self.bot.latency * 1000)}ms", inline=True
         )
 
-        await ctx.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
@@ -55,4 +56,6 @@ class ExampleCog(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     """Required function to load the cog."""
-    await bot.add_cog(ExampleCog(bot))
+    cog = ExampleCog(bot)
+    await bot.add_cog(cog)
+    # Slash commands will be synced automatically in bot.py

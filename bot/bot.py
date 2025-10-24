@@ -26,7 +26,10 @@ class Bot508(commands.Bot):
 
     def __init__(self) -> None:
         intents = discord.Intents.all()
-        super().__init__(command_prefix="!", intents=intents)
+        # Use a prefix that won't accidentally trigger since we're using slash commands
+        super().__init__(command_prefix="$508$", intents=intents)
+        # Remove the default help command since we're using slash commands
+        self.remove_command('help')
 
     async def setup_hook(self) -> None:
         """Load all cogs automatically."""
@@ -43,6 +46,15 @@ class Bot508(commands.Bot):
                     logger.info(f"Loaded cog: {cog_name}")
                 except Exception as e:
                     logger.error(f"Failed to load cog {cog_name}: {e}")
+
+        # Sync slash commands after loading all cogs
+        try:
+            synced = await self.tree.sync()
+            logger.info(f"Synced {len(synced)} slash commands")
+            for cmd in synced:
+                logger.info(f"  - /{cmd.name}: {cmd.description}")
+        except Exception as e:
+            logger.error(f"Failed to sync slash commands: {e}")
 
     async def on_ready(self) -> None:
         """Handle bot ready event."""

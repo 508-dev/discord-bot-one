@@ -34,17 +34,46 @@ discord-bot-one/
 ### Email Monitor ([`bot/cogs/email_monitor.py`](bot/cogs/email_monitor.py))
 - Polls IMAP email inbox for new messages
 - Posts new emails to designated Discord channel
-- Commands: `!st` (start), `!is_running` (status)
+- Commands: `/start-email` (start polling), `/email-status` (check status)
 
 ### Example Cog ([`bot/cogs/example_cog.py`](bot/cogs/example_cog.py))
 - Template showing common patterns
-- Basic commands: `!hello`, `!ping`, `!info`
+- Basic commands: `/hello`, `/ping`, `/info`
 - Event listener example (member join)
 - Use as starting point for new cogs
 
 ## Quick Start (Local Development)
 
 For local development and testing. Production deployment is handled by [Coolify](https://coolify.508.dev/).
+
+### Setting up your own Discord Bot (for testing)
+
+If you want to test with your own bot instead of the production bot:
+
+1. **Create a Discord Application:**
+   - Follow the [Discord Developer Quick Start Guide](https://discord.com/developers/docs/quick-start/getting-started)
+   - Create a new application and bot
+
+2. **Configure Bot Permissions:**
+   - Go to your app in Discord Developer Portal → OAuth2 → URL Generator
+   - Under **Scopes**, select:
+     - ✅ `bot`
+     - ✅ `applications.commands` (required for slash commands)
+   - Under **Bot Permissions**, select:
+     - ✅ `Send Messages`
+     - ✅ `Use Slash Commands`
+     - ✅ `Read Message History`
+     - ✅ `Add Reactions`
+
+3. **Install Bot in Your Server:**
+   - Use the generated OAuth2 URL to invite the bot to your test server
+   - Make sure you have admin permissions in that server
+
+4. **Get Required Values:**
+   - **Bot Token**: Discord Developer Portal → Your App → Bot → Token (keep this secret!)
+   - **Channel ID**: Right-click on a Discord channel → Copy Channel ID (enable Developer Mode in Discord settings if needed)
+
+### Local Development Setup
 
 1. **Install uv (if not already installed):**
    ```bash
@@ -78,16 +107,18 @@ For local development and testing. Production deployment is handled by [Coolify]
 
 ## Environment Variables
 
-Required:
-- `DISCORD_BOT_TOKEN` - Your Discord bot token
-- `EMAIL_USERNAME` - Email account username
-- `EMAIL_PASSWORD` - Email account password
+### Required
+- `DISCORD_BOT_TOKEN` - Your Discord bot token (from Discord Developer Portal)
+- `CHANNEL_ID` - Discord channel ID where the bot will send messages
+- `EMAIL_USERNAME` - Email account username for monitoring
+- `EMAIL_PASSWORD` - Email account password (use app password for Gmail/etc.)
+- `IMAP_SERVER` - IMAP server hostname (e.g., `imap.gmail.com`)
+- `SMTP_SERVER` - SMTP server hostname (e.g., `smtp.gmail.com`)
 
-Optional (with defaults):
-- `CHANNEL_ID` - Discord channel ID for notifications
-- `CHECK_EMAIL_WAIT` - Email check interval in minutes
-- `IMAP_SERVER` - IMAP server hostname
-- `SMTP_SERVER` - SMTP server hostname
+### Optional (with defaults)
+- `CHECK_EMAIL_WAIT` - Email check interval in minutes (default: 2)
+- `MAX_SESSION_TIME_MINUTES` - Max session time (default: 2)
+- `DISCORD_SENDMSG_CHARACTER_LIMIT` - Message length limit (default: 2000)
 
 ## Adding New Features
 
