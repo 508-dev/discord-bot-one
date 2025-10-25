@@ -29,7 +29,7 @@ class CRMCog(commands.Cog):
     async def search_contacts(self, interaction: discord.Interaction, query: str) -> None:
         """Search for contacts in the CRM."""
         try:
-            await interaction.response.defer()
+            await interaction.response.defer(ephemeral=True)
 
             # Search contacts using EspoCRM API
             search_params = {
@@ -110,7 +110,7 @@ class CRMCog(commands.Cog):
     async def crm_status(self, interaction: discord.Interaction) -> None:
         """Check if the CRM API is accessible."""
         try:
-            await interaction.response.defer()
+            await interaction.response.defer(ephemeral=True)
 
             # Try a simple API call to check connectivity
             response = self.espo_api.request('GET', 'App/user')
