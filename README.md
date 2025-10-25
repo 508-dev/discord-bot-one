@@ -36,6 +36,11 @@ discord-bot-one/
 - Posts new emails to designated Discord channel
 - Commands: `/start-email` (start polling), `/email-status` (check status)
 
+### CRM Integration ([`bot/cogs/crm.py`](bot/cogs/crm.py))
+- Connect to EspoCRM for customer relationship management
+- Search contacts, view recent leads, check API status
+- Commands: `/crm-contacts` (search), `/crm-leads` (recent leads), `/crm-status` (API health)
+
 ### Example Cog ([`bot/cogs/example_cog.py`](bot/cogs/example_cog.py))
 - Template showing common patterns
 - Basic commands: `/hello`, `/ping`, `/info`
@@ -114,6 +119,8 @@ If you want to test with your own bot instead of the production bot:
 - `EMAIL_PASSWORD` - Email account password (use app password for Gmail/etc.)
 - `IMAP_SERVER` - IMAP server hostname (e.g., `imap.gmail.com`)
 - `SMTP_SERVER` - SMTP server hostname (e.g., `smtp.gmail.com`)
+- `ESPO_API_KEY` - EspoCRM API key for CRM integration
+- `ESPO_API_URL` - EspoCRM base URL (e.g., `https://crm.508.dev/`)
 
 ### Optional (with defaults)
 - `CHECK_EMAIL_WAIT` - Email check interval in minutes (default: 2)

@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     smtp_server: str
     discord_sendmsg_character_limit: int = 2000
 
+    # CRM/EspoCRM settings
+    espo_api_key: str
+    espo_api_url: str
+
     model_config = SettingsConfigDict(env_file=".env")
 
 
