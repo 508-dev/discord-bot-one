@@ -20,6 +20,7 @@ discord-bot-one/
 │   ├── bot.py                 # Main bot class with auto-loading
 │   ├── cogs/                  # Individual bot cogs (features)
 │   │   ├── email_monitor.py   # Email monitoring cog
+│   │   ├── crm.py             # CRM integration cog
 │   │   └── example_cog.py     # Template for new cogs
 │   └── utils/                 # Shared utilities
 ├── pyproject.toml             # Dependencies (managed with uv)
@@ -38,14 +39,10 @@ discord-bot-one/
 
 ### CRM Integration ([`bot/cogs/crm.py`](bot/cogs/crm.py))
 - Connect to EspoCRM for customer relationship management
-- Search contacts, view recent leads, check API status
-- Commands: `/crm-contacts` (search), `/crm-leads` (recent leads), `/crm-status` (API health)
-
-### Example Cog ([`bot/cogs/example_cog.py`](bot/cogs/example_cog.py))
-- Template showing common patterns
-- Basic commands: `/hello`, `/ping`, `/info`
-- Event listener example (member join)
-- Use as starting point for new cogs
+- Search contacts and download resumes with role-based access control
+- Interactive resume download buttons for easy access
+- Commands: `/crm-contacts` (search contacts), `/get-resume` (download resume), `/crm-status` (API health)
+- Role hierarchy: Owner > Admin > Member (higher roles inherit lower role permissions)
 
 ## Quick Start (Local Development)
 
