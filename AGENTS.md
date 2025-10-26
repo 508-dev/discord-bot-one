@@ -213,7 +213,7 @@ logger.error(f"Error: {e}")
 
 1. **Read existing code** before making changes
 2. **Follow established patterns** from existing features
-3. **Test incrementally** - add one command at a time
+3. **Test incrementally** - add one command at a time. Run tests after making major changes.
 4. **Handle errors gracefully** - always use try/catch
 5. **Document your work** - add docstrings and comments
 6. **Keep features focused** - one feature per file

@@ -22,7 +22,7 @@ class TestBot508:
         """Test bot initialization with correct parameters."""
         bot = Bot508()
 
-        assert bot.command_prefix == "!"
+        assert bot.command_prefix == "$508$"
         assert bot.intents.value == discord.Intents.all().value
 
     @pytest.mark.asyncio

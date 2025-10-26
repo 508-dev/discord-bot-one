@@ -7,12 +7,13 @@ import asyncio
 from unittest.mock import Mock, AsyncMock
 from discord.ext import commands
 import discord
+from typing import Generator
 
 # Config tests removed - no need to import Settings
 
 
 @pytest.fixture(scope="session")
-def event_loop():
+def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
     """Create an instance of the default event loop for the test session."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
@@ -20,7 +21,7 @@ def event_loop():
 
 
 @pytest.fixture
-def mock_bot():
+def mock_bot() -> Mock:
     """Create a mock Discord bot for testing."""
     bot = Mock(spec=commands.Bot)
     bot.user = Mock()
@@ -36,7 +37,7 @@ def mock_bot():
 
 
 @pytest.fixture
-def mock_discord_context():
+def mock_discord_context() -> Mock:
     """Create a mock Discord context for command testing."""
     ctx = Mock(spec=commands.Context)
     ctx.send = AsyncMock()
@@ -53,7 +54,7 @@ def mock_discord_context():
 
 
 @pytest.fixture
-def mock_discord_channel():
+def mock_discord_channel() -> Mock:
     """Create a mock Discord channel for testing."""
     channel = Mock(spec=discord.TextChannel)
     channel.send = AsyncMock()
@@ -64,7 +65,7 @@ def mock_discord_channel():
 
 
 @pytest.fixture
-def mock_discord_member():
+def mock_discord_member() -> Mock:
     """Create a mock Discord member for testing."""
     member = Mock(spec=discord.Member)
     member.mention = "<@987654321>"
@@ -75,7 +76,7 @@ def mock_discord_member():
 
 
 @pytest.fixture
-def mock_email_message():
+def mock_email_message() -> Mock:
     """Create a mock email message for testing."""
     message = Mock()
     message.is_multipart.return_value = False
@@ -94,7 +95,7 @@ def mock_email_message():
 
 
 @pytest.fixture(autouse=True)
-def mock_env_vars(monkeypatch):
+def mock_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     """Mock environment variables for all tests."""
     monkeypatch.setenv("DISCORD_BOT_TOKEN", "test_token")
     monkeypatch.setenv("EMAIL_USERNAME", "test@example.com")
@@ -103,7 +104,7 @@ def mock_env_vars(monkeypatch):
 
 
 @pytest.fixture
-def mock_imap_server():
+def mock_imap_server() -> Mock:
     """Create a mock IMAP server for email testing."""
     mock_imap = Mock()
     mock_imap.login = Mock()

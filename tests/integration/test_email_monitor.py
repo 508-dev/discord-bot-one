@@ -29,10 +29,14 @@ class TestEmailMonitorIntegration:
     @pytest.mark.asyncio
     async def test_st_command_starts_polling(self, email_monitor, mock_discord_context):
         """Test that st command starts email polling."""
+        # Mock the interaction response for slash commands
+        mock_discord_context.response = Mock()
+        mock_discord_context.response.send_message = AsyncMock()
+
         await email_monitor.st.callback(email_monitor, mock_discord_context)
 
-        mock_discord_context.send.assert_called_once()
-        call_args = mock_discord_context.send.call_args[0][0]
+        mock_discord_context.response.send_message.assert_called_once()
+        call_args = mock_discord_context.response.send_message.call_args[0][0]
         assert "Polling for emails" in call_args
 
     @pytest.mark.asyncio
@@ -40,18 +44,22 @@ class TestEmailMonitorIntegration:
         self, email_monitor, mock_discord_context
     ):
         """Test that is_running command shows correct status."""
+        # Mock the interaction response for slash commands
+        mock_discord_context.response = Mock()
+        mock_discord_context.response.send_message = AsyncMock()
+
         # Test when not running
         email_monitor.task_poll_inbox.is_running.return_value = False
         await email_monitor.is_running.callback(email_monitor, mock_discord_context)
 
-        call_args = mock_discord_context.send.call_args[0][0]
+        call_args = mock_discord_context.response.send_message.call_args[0][0]
         assert "isn't" in call_args
 
         # Test when running
         email_monitor.task_poll_inbox.is_running.return_value = True
         await email_monitor.is_running.callback(email_monitor, mock_discord_context)
 
-        call_args = mock_discord_context.send.call_args[0][0]
+        call_args = mock_discord_context.response.send_message.call_args[0][0]
         assert "is" in call_args and "isn't" not in call_args
 
     # IMAP integration tests removed - too complex to mock properly
