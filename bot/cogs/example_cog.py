@@ -10,7 +10,6 @@ from discord import app_commands
 import discord
 
 
-
 class ExampleCog(commands.Cog):
     """Example cog showing basic structure and common patterns."""
 
@@ -20,7 +19,9 @@ class ExampleCog(commands.Cog):
     @app_commands.command(name="hello", description="Say hello and get a warm welcome!")
     async def hello_command(self, interaction: discord.Interaction) -> None:
         """Simple hello command example."""
-        await interaction.response.send_message(f"Hello {interaction.user.mention}! Welcome to 508.dev!")
+        await interaction.response.send_message(
+            f"Hello {interaction.user.mention}! Welcome to 508.dev!"
+        )
 
 
 async def setup(bot: commands.Bot) -> None:

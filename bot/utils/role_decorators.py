@@ -9,7 +9,9 @@ from typing import List, Any, Callable
 import discord
 
 
-def require_roles(*required_roles: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+def require_roles(
+    *required_roles: str,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator to require specific roles for command access.
 
@@ -24,15 +26,22 @@ def require_roles(*required_roles: str) -> Callable[[Callable[..., Any]], Callab
         async def my_command(self, interaction: discord.Interaction):
             # Command implementation
     """
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        async def wrapper(self: Any, interaction: discord.Interaction, *args: Any, **kwargs: Any) -> Any:
+        async def wrapper(
+            self: Any, interaction: discord.Interaction, *args: Any, **kwargs: Any
+        ) -> Any:
             # Check if user has any of the required roles (with hierarchy)
-            if not hasattr(interaction.user, 'roles') or not check_user_roles_with_hierarchy(interaction.user.roles, list(required_roles)):
+            if not hasattr(
+                interaction.user, "roles"
+            ) or not check_user_roles_with_hierarchy(
+                interaction.user.roles, list(required_roles)
+            ):
                 role_list = ", ".join(required_roles)
                 await interaction.response.send_message(
                     f"❌ You must have one of these roles to use this command: {role_list}",
-                    ephemeral=True
+                    ephemeral=True,
                 )
                 return
 
@@ -40,10 +49,13 @@ def require_roles(*required_roles: str) -> Callable[[Callable[..., Any]], Callab
             return await func(self, interaction, *args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
-def require_role(required_role: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+def require_role(
+    required_role: str,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator to require a specific role for command access.
 
@@ -73,7 +85,9 @@ def check_user_roles(user_roles: List[discord.Role], required_roles: List[str]) 
     return any(role in user_role_names for role in required_roles)
 
 
-def get_missing_roles(user_roles: List[discord.Role], required_roles: List[str]) -> List[str]:
+def get_missing_roles(
+    user_roles: List[discord.Role], required_roles: List[str]
+) -> List[str]:
     """
     Get list of required roles that user doesn't have.
 
@@ -88,7 +102,9 @@ def get_missing_roles(user_roles: List[discord.Role], required_roles: List[str])
     return [role for role in required_roles if role not in user_role_names]
 
 
-def check_user_roles_with_hierarchy(user_roles: List[discord.Role], required_roles: List[str]) -> bool:
+def check_user_roles_with_hierarchy(
+    user_roles: List[discord.Role], required_roles: List[str]
+) -> bool:
     """
     Check if user has any of the required roles, considering role hierarchy.
 
@@ -111,7 +127,9 @@ def check_user_roles_with_hierarchy(user_roles: List[discord.Role], required_rol
     user_highest_level = -1
     for role_name in user_role_names:
         if role_name in ROLE_HIERARCHY:
-            user_highest_level = max(user_highest_level, ROLE_HIERARCHY.index(role_name))
+            user_highest_level = max(
+                user_highest_level, ROLE_HIERARCHY.index(role_name)
+            )
 
     # Check if user has sufficient role level for any required role
     for required_role in required_roles:

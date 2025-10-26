@@ -11,7 +11,7 @@ from bot.utils.role_decorators import (
     check_user_roles,
     get_missing_roles,
     check_user_roles_with_hierarchy,
-    get_user_hierarchy_level
+    get_user_hierarchy_level,
 )
 
 
@@ -49,7 +49,9 @@ class TestRoleDecorators:
         return role
 
     @pytest.mark.asyncio
-    async def test_require_role_with_correct_role(self, mock_interaction, mock_member_role):
+    async def test_require_role_with_correct_role(
+        self, mock_interaction, mock_member_role
+    ):
         """Test require_role decorator allows access with correct role."""
         mock_interaction.user.roles = [mock_member_role]
 
@@ -66,7 +68,9 @@ class TestRoleDecorators:
         mock_interaction.response.send_message.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_require_role_without_correct_role(self, mock_interaction, mock_user_role):
+    async def test_require_role_without_correct_role(
+        self, mock_interaction, mock_user_role
+    ):
         """Test require_role decorator denies access without correct role."""
         mock_interaction.user.roles = [mock_user_role]
 
@@ -81,11 +85,13 @@ class TestRoleDecorators:
         assert result is None  # Function should not complete
         mock_interaction.response.send_message.assert_called_once_with(
             "❌ You must have one of these roles to use this command: Member",
-            ephemeral=True
+            ephemeral=True,
         )
 
     @pytest.mark.asyncio
-    async def test_require_roles_with_one_correct_role(self, mock_interaction, mock_member_role, mock_user_role):
+    async def test_require_roles_with_one_correct_role(
+        self, mock_interaction, mock_member_role, mock_user_role
+    ):
         """Test require_roles decorator allows access with one of multiple required roles."""
         mock_interaction.user.roles = [mock_member_role, mock_user_role]
 
@@ -101,7 +107,9 @@ class TestRoleDecorators:
         mock_interaction.response.send_message.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_require_roles_without_any_correct_role(self, mock_interaction, mock_user_role):
+    async def test_require_roles_without_any_correct_role(
+        self, mock_interaction, mock_user_role
+    ):
         """Test require_roles decorator denies access without any required roles."""
         mock_interaction.user.roles = [mock_user_role]
 
@@ -116,11 +124,13 @@ class TestRoleDecorators:
         assert result is None
         mock_interaction.response.send_message.assert_called_once_with(
             "❌ You must have one of these roles to use this command: Member, Admin",
-            ephemeral=True
+            ephemeral=True,
         )
 
     @pytest.mark.asyncio
-    async def test_require_role_with_admin_role(self, mock_interaction, mock_admin_role):
+    async def test_require_role_with_admin_role(
+        self, mock_interaction, mock_admin_role
+    ):
         """Test require_role decorator works with Admin role."""
         mock_interaction.user.roles = [mock_admin_role]
 
@@ -138,6 +148,7 @@ class TestRoleDecorators:
     @pytest.mark.asyncio
     async def test_decorator_preserves_function_metadata(self):
         """Test that decorator preserves original function metadata."""
+
         @require_role("Member")
         async def test_command(self, interaction):
             """Test command docstring."""
@@ -147,7 +158,9 @@ class TestRoleDecorators:
         assert test_command.__doc__ == "Test command docstring."
 
     @pytest.mark.asyncio
-    async def test_decorator_with_args_and_kwargs(self, mock_interaction, mock_member_role):
+    async def test_decorator_with_args_and_kwargs(
+        self, mock_interaction, mock_member_role
+    ):
         """Test decorator works with functions that have additional args and kwargs."""
         mock_interaction.user.roles = [mock_member_role]
 
@@ -157,7 +170,9 @@ class TestRoleDecorators:
 
         mock_self = Mock()
 
-        result = await test_command(mock_self, mock_interaction, "test1", "test2", kwarg1="test3")
+        result = await test_command(
+            mock_self, mock_interaction, "test1", "test2", kwarg1="test3"
+        )
 
         assert result == "success-test1-test2-test3"
 
@@ -281,34 +296,44 @@ class TestHierarchicalRoles:
             "member": member_role,
             "admin": admin_role,
             "owner": owner_role,
-            "user": user_role
+            "user": user_role,
         }
 
-    def test_check_user_roles_with_hierarchy_member_access(self, mock_roles_with_hierarchy):
+    def test_check_user_roles_with_hierarchy_member_access(
+        self, mock_roles_with_hierarchy
+    ):
         """Test that Member role grants Member access."""
         roles = [mock_roles_with_hierarchy["member"]]
         result = check_user_roles_with_hierarchy(roles, ["Member"])
         assert result is True
 
-    def test_check_user_roles_with_hierarchy_admin_grants_member_access(self, mock_roles_with_hierarchy):
+    def test_check_user_roles_with_hierarchy_admin_grants_member_access(
+        self, mock_roles_with_hierarchy
+    ):
         """Test that Admin role grants Member access."""
         roles = [mock_roles_with_hierarchy["admin"]]
         result = check_user_roles_with_hierarchy(roles, ["Member"])
         assert result is True
 
-    def test_check_user_roles_with_hierarchy_owner_grants_member_access(self, mock_roles_with_hierarchy):
+    def test_check_user_roles_with_hierarchy_owner_grants_member_access(
+        self, mock_roles_with_hierarchy
+    ):
         """Test that Owner role grants Member access."""
         roles = [mock_roles_with_hierarchy["owner"]]
         result = check_user_roles_with_hierarchy(roles, ["Member"])
         assert result is True
 
-    def test_check_user_roles_with_hierarchy_owner_grants_admin_access(self, mock_roles_with_hierarchy):
+    def test_check_user_roles_with_hierarchy_owner_grants_admin_access(
+        self, mock_roles_with_hierarchy
+    ):
         """Test that Owner role grants Admin access."""
         roles = [mock_roles_with_hierarchy["owner"]]
         result = check_user_roles_with_hierarchy(roles, ["Admin"])
         assert result is True
 
-    def test_check_user_roles_with_hierarchy_member_denied_admin_access(self, mock_roles_with_hierarchy):
+    def test_check_user_roles_with_hierarchy_member_denied_admin_access(
+        self, mock_roles_with_hierarchy
+    ):
         """Test that Member role does not grant Admin access."""
         roles = [mock_roles_with_hierarchy["member"]]
         result = check_user_roles_with_hierarchy(roles, ["Admin"])
@@ -320,13 +345,17 @@ class TestHierarchicalRoles:
         result = check_user_roles_with_hierarchy(roles, ["Member"])
         assert result is False
 
-    def test_check_user_roles_with_hierarchy_non_hierarchical_role(self, mock_roles_with_hierarchy):
+    def test_check_user_roles_with_hierarchy_non_hierarchical_role(
+        self, mock_roles_with_hierarchy
+    ):
         """Test that non-hierarchical roles still work with direct matching."""
         roles = [mock_roles_with_hierarchy["user"]]
         result = check_user_roles_with_hierarchy(roles, ["User"])
         assert result is True
 
-    def test_check_user_roles_with_hierarchy_mixed_roles(self, mock_roles_with_hierarchy):
+    def test_check_user_roles_with_hierarchy_mixed_roles(
+        self, mock_roles_with_hierarchy
+    ):
         """Test hierarchy with mix of hierarchical and non-hierarchical roles."""
         roles = [mock_roles_with_hierarchy["admin"], mock_roles_with_hierarchy["user"]]
 
@@ -360,7 +389,9 @@ class TestHierarchicalRoles:
         level = get_user_hierarchy_level(roles)
         assert level == 2  # Owner is level 2
 
-    def test_get_user_hierarchy_level_no_hierarchical_roles(self, mock_roles_with_hierarchy):
+    def test_get_user_hierarchy_level_no_hierarchical_roles(
+        self, mock_roles_with_hierarchy
+    ):
         """Test getting hierarchy level with no hierarchical roles."""
         roles = [mock_roles_with_hierarchy["user"]]
         level = get_user_hierarchy_level(roles)
@@ -368,12 +399,17 @@ class TestHierarchicalRoles:
 
     def test_get_user_hierarchy_level_multiple_roles(self, mock_roles_with_hierarchy):
         """Test getting highest hierarchy level with multiple roles."""
-        roles = [mock_roles_with_hierarchy["member"], mock_roles_with_hierarchy["admin"]]
+        roles = [
+            mock_roles_with_hierarchy["member"],
+            mock_roles_with_hierarchy["admin"],
+        ]
         level = get_user_hierarchy_level(roles)
         assert level == 1  # Highest is Admin (level 1)
 
     @pytest.mark.asyncio
-    async def test_require_role_with_admin_grants_member_access(self, mock_roles_with_hierarchy):
+    async def test_require_role_with_admin_grants_member_access(
+        self, mock_roles_with_hierarchy
+    ):
         """Test that require_role decorator allows Admin to access Member-only commands."""
         mock_interaction = AsyncMock()
         mock_interaction.response = AsyncMock()
@@ -393,7 +429,9 @@ class TestHierarchicalRoles:
         mock_interaction.response.send_message.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_require_role_with_owner_grants_member_access(self, mock_roles_with_hierarchy):
+    async def test_require_role_with_owner_grants_member_access(
+        self, mock_roles_with_hierarchy
+    ):
         """Test that require_role decorator allows Owner to access Member-only commands."""
         mock_interaction = AsyncMock()
         mock_interaction.response = AsyncMock()

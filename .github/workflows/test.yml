@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    environment: test
 
     steps:
     - uses: actions/checkout@v5
@@ -33,6 +34,8 @@ jobs:
         echo "CHANNEL_ID=123456789" >> $GITHUB_ENV
         echo "IMAP_SERVER=imap.test.com" >> $GITHUB_ENV
         echo "SMTP_SERVER=smtp.test.com" >> $GITHUB_ENV
+        echo "ESPO_API_KEY=${{ secrets.ESPO_API_KEY }}" >> $GITHUB_ENV
+        echo "ESPO_API_URL=${{ secrets.ESPO_API_URL }}" >> $GITHUB_ENV
 
     - name: Run tests with pytest
       run: |

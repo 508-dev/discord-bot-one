@@ -29,7 +29,7 @@ class Bot508(commands.Bot):
         # Use a prefix that won't accidentally trigger since we're using slash commands
         super().__init__(command_prefix="$508$", intents=intents)
         # Remove the default help command since we're using slash commands
-        self.remove_command('help')
+        self.remove_command("help")
 
     async def setup_hook(self) -> None:
         """Load all cogs automatically."""

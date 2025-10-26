@@ -23,7 +23,7 @@ class TestCRMCog:
     @pytest.fixture
     def mock_espo_api(self):
         """Create a mock EspoAPI for testing."""
-        with patch('bot.cogs.crm.EspoAPI') as mock_api_class:
+        with patch("bot.cogs.crm.EspoAPI") as mock_api_class:
             mock_api = Mock()
             mock_api_class.return_value = mock_api
             yield mock_api
@@ -67,7 +67,9 @@ class TestCRMCog:
         assert cog.bot == mock_bot
         assert cog.espo_api is not None
 
-    def test_check_member_role_with_member(self, crm_cog, mock_interaction, mock_member_role):
+    def test_check_member_role_with_member(
+        self, crm_cog, mock_interaction, mock_member_role
+    ):
         """Test _check_member_role returns True for users with Member role."""
         mock_interaction.user.roles = [mock_member_role]
 
@@ -95,10 +97,14 @@ class TestCRMCog:
         crm_cog.espo_api.download_file.return_value = file_content
         crm_cog.espo_api.request.return_value = file_info
 
-        await crm_cog._download_and_send_resume(mock_interaction, "John Doe", "resume123")
+        await crm_cog._download_and_send_resume(
+            mock_interaction, "John Doe", "resume123"
+        )
 
         # Verify API calls
-        crm_cog.espo_api.download_file.assert_called_once_with("Attachment/file/resume123")
+        crm_cog.espo_api.download_file.assert_called_once_with(
+            "Attachment/file/resume123"
+        )
         crm_cog.espo_api.request.assert_called_once_with("GET", "Attachment/resume123")
 
         # Verify Discord response
@@ -112,12 +118,18 @@ class TestCRMCog:
         """Test resume download with API error."""
         crm_cog.espo_api.download_file.side_effect = EspoAPIError("API Error")
 
-        await crm_cog._download_and_send_resume(mock_interaction, "John Doe", "resume123")
+        await crm_cog._download_and_send_resume(
+            mock_interaction, "John Doe", "resume123"
+        )
 
-        mock_interaction.followup.send.assert_called_once_with("❌ Failed to download resume: API Error")
+        mock_interaction.followup.send.assert_called_once_with(
+            "❌ Failed to download resume: API Error"
+        )
 
     @pytest.mark.asyncio
-    async def test_search_contacts_success(self, crm_cog, mock_interaction, mock_member_role):
+    async def test_search_contacts_success(
+        self, crm_cog, mock_interaction, mock_member_role
+    ):
         """Test successful contact search."""
         # Mock user with Member role
         mock_interaction.user.roles = [mock_member_role]
@@ -133,7 +145,7 @@ class TestCRMCog:
                     "c508Email": "john@508.dev",
                     "cDiscordUsername": "johndoe#1234",
                     "resumeIds": ["resume123"],
-                    "resumeNames": {"resume123": "john_resume.pdf"}
+                    "resumeNames": {"resume123": "john_resume.pdf"},
                 }
             ]
         }
@@ -154,7 +166,9 @@ class TestCRMCog:
         mock_interaction.followup.send.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_search_contacts_no_results(self, crm_cog, mock_interaction, mock_member_role):
+    async def test_search_contacts_no_results(
+        self, crm_cog, mock_interaction, mock_member_role
+    ):
         """Test contact search with no results."""
         mock_interaction.user.roles = [mock_member_role]
         crm_cog.espo_api.request.return_value = {"list": []}
@@ -162,10 +176,14 @@ class TestCRMCog:
         # Call the callback function to bypass app_commands decorator
         await crm_cog.search_contacts.callback(crm_cog, mock_interaction, "nonexistent")
 
-        mock_interaction.followup.send.assert_called_once_with("🔍 No contacts found for: `nonexistent`")
+        mock_interaction.followup.send.assert_called_once_with(
+            "🔍 No contacts found for: `nonexistent`"
+        )
 
     @pytest.mark.asyncio
-    async def test_get_resume_success(self, crm_cog, mock_interaction, mock_member_role):
+    async def test_get_resume_success(
+        self, crm_cog, mock_interaction, mock_member_role
+    ):
         """Test successful resume retrieval."""
         mock_interaction.user.roles = [mock_member_role]
 
@@ -176,7 +194,7 @@ class TestCRMCog:
                     "id": "contact123",
                     "name": "John Doe",
                     "resumeIds": ["resume123"],
-                    "resumeNames": {"resume123": "john_resume.pdf"}
+                    "resumeNames": {"resume123": "john_resume.pdf"},
                 }
             ]
         }
@@ -200,18 +218,26 @@ class TestCRMCog:
         mock_interaction.followup.send.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_resume_contact_not_found(self, crm_cog, mock_interaction, mock_member_role):
+    async def test_get_resume_contact_not_found(
+        self, crm_cog, mock_interaction, mock_member_role
+    ):
         """Test resume retrieval when contact not found."""
         mock_interaction.user.roles = [mock_member_role]
         crm_cog.espo_api.request.return_value = {"list": []}
 
         # Call the callback function to bypass app_commands decorator
-        await crm_cog.get_resume.callback(crm_cog, mock_interaction, "nonexistent@example.com")
+        await crm_cog.get_resume.callback(
+            crm_cog, mock_interaction, "nonexistent@example.com"
+        )
 
-        mock_interaction.followup.send.assert_called_once_with("❌ No contact found for: `nonexistent@example.com`")
+        mock_interaction.followup.send.assert_called_once_with(
+            "❌ No contact found for: `nonexistent@example.com`"
+        )
 
     @pytest.mark.asyncio
-    async def test_get_resume_no_resume_found(self, crm_cog, mock_interaction, mock_member_role):
+    async def test_get_resume_no_resume_found(
+        self, crm_cog, mock_interaction, mock_member_role
+    ):
         """Test resume retrieval when contact has no resume."""
         mock_interaction.user.roles = [mock_member_role]
 
@@ -221,7 +247,7 @@ class TestCRMCog:
                     "id": "contact123",
                     "name": "John Doe",
                     "resumeIds": [],
-                    "resumeNames": {}
+                    "resumeNames": {},
                 }
             ]
         }
@@ -231,14 +257,20 @@ class TestCRMCog:
         # Call the callback function to bypass app_commands decorator
         await crm_cog.get_resume.callback(crm_cog, mock_interaction, "john@508.dev")
 
-        mock_interaction.followup.send.assert_called_once_with("❌ No resume found for John Doe")
+        mock_interaction.followup.send.assert_called_once_with(
+            "❌ No resume found for John Doe"
+        )
 
     def test_query_normalization_username(self, crm_cog):
         """Test that username gets @508.dev appended."""
         # This would be tested in the actual command, but we can verify the logic
         query = "john"
         # Simulate the normalization logic from get_resume
-        normalized = f"{query}@508.dev" if "@" not in query and not any(char in query for char in [" ", ".", "#"]) else query
+        normalized = (
+            f"{query}@508.dev"
+            if "@" not in query and not any(char in query for char in [" ", ".", "#"])
+            else query
+        )
         assert normalized == "john@508.dev"
 
     def test_query_normalization_at_sign(self, crm_cog):
@@ -385,8 +417,7 @@ class TestResumeDownloadButton:
         await button.callback(mock_interaction)
 
         mock_interaction.response.send_message.assert_called_once_with(
-            "❌ You must have the Member role to download resumes.",
-            ephemeral=True
+            "❌ You must have the Member role to download resumes.", ephemeral=True
         )
 
     @pytest.mark.asyncio
@@ -406,6 +437,5 @@ class TestResumeDownloadButton:
         await button.callback(mock_interaction)
 
         mock_interaction.response.send_message.assert_called_once_with(
-            "❌ CRM functionality not available.",
-            ephemeral=True
+            "❌ CRM functionality not available.", ephemeral=True
         )
