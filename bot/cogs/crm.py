@@ -87,6 +87,104 @@ class ResumeDownloadButton(discord.ui.Button[discord.ui.View]):
             )
 
 
+class ContactSelectionView(discord.ui.View):
+    """View containing contact selection buttons for Discord linking."""
+
+    def __init__(self, user: discord.Member, search_term: str) -> None:
+        super().__init__(timeout=300)  # 5 minute timeout
+        self.user = user
+        self.search_term = search_term
+
+    def add_contact_button(self, contact: dict[str, Any]) -> None:
+        """Add a contact selection button."""
+        if len(self.children) >= 5:  # Discord limit of 5 buttons per row
+            return
+
+        button = ContactSelectionButton(contact, self.user)
+        self.add_item(button)
+
+
+class ContactSelectionButton(discord.ui.Button[ContactSelectionView]):
+    """Button for selecting a contact to link to Discord user."""
+
+    def __init__(self, contact: dict[str, Any], user: discord.Member) -> None:
+        # Create button label from contact name (truncate if too long)
+        contact_name = contact.get("name", "Unknown")
+        label = contact_name[:80] if len(contact_name) > 80 else contact_name
+
+        super().__init__(style=discord.ButtonStyle.primary, label=label, emoji="🔗")
+        self.contact = contact
+        self.user = user
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        """Handle contact selection and perform the Discord linking."""
+        try:
+            # Check if user has required role
+            if not hasattr(
+                interaction.user, "roles"
+            ) or not check_user_roles_with_hierarchy(
+                interaction.user.roles, ["Steering Committee"]
+            ):
+                await interaction.response.send_message(
+                    "❌ You must have Steering Committee role or higher to use this command.",
+                    ephemeral=True,
+                )
+                return
+
+            await interaction.response.defer(ephemeral=True)
+
+            # Get the CRM cog to perform the linking
+            if not self.view:
+                await interaction.followup.send("❌ View not found.")
+                return
+
+            from discord.ext import commands
+
+            bot = interaction.client
+            assert isinstance(bot, commands.Bot)
+            cog = bot.get_cog("CRMCog")
+            if not cog or not isinstance(cog, CRMCog):
+                await interaction.followup.send("❌ CRM cog not found.")
+                return
+
+            # Perform the Discord linking
+            success = await cog._perform_discord_linking(
+                interaction, self.user, self.contact
+            )
+
+            if success and self.view:
+                # Disable all buttons in the view
+                for item in self.view.children:
+                    if isinstance(item, discord.ui.Button):
+                        item.disabled = True
+
+                # Update the original message to show selection was made
+                embed = discord.Embed(
+                    title="✅ Contact Selected",
+                    description=f"Selected **{self.contact.get('name', 'Unknown')}** for linking.",
+                    color=0x00FF00,
+                )
+
+                # Edit the original message with disabled buttons
+                if interaction.message:
+                    try:
+                        await interaction.message.edit(embed=embed, view=self.view)
+                    except discord.NotFound:
+                        # Message was deleted or not found, ignore this error
+                        logger.debug(
+                            "Original message not found when trying to update button view"
+                        )
+                    except discord.HTTPException as e:
+                        # Other Discord API errors
+                        logger.warning(f"Failed to update original message: {e}")
+
+        except Exception as e:
+            logger.error(f"Error in contact selection callback: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while linking the contact."
+            )
+
+
 class CRMCog(commands.Cog):
     """CRM integration cog for EspoCRM operations."""
 
@@ -463,80 +561,30 @@ class CRMCog(commands.Cog):
         response = self.espo_api.request("GET", "Contact", search_params)
         contacts: list[dict[str, Any]] = response.get("list", [])
 
+        # Deduplicate contacts by ID to avoid showing duplicates
+        seen_ids = set()
+        deduplicated_contacts = []
+        for contact in contacts:
+            contact_id = contact.get("id")
+            if contact_id and contact_id not in seen_ids:
+                seen_ids.add(contact_id)
+                deduplicated_contacts.append(contact)
+
         # For email or full name searches, auto-select if exactly one result
-        if should_auto_select and len(contacts) > 1:
+        if should_auto_select and len(deduplicated_contacts) > 1:
             # Multiple results for email/full name - still show choices
             pass
 
-        return contacts
+        return deduplicated_contacts
 
-    async def _show_contact_choices(
+    async def _perform_discord_linking(
         self,
         interaction: discord.Interaction,
         user: discord.Member,
-        search_term: str,
-        contacts: list[dict[str, Any]],
-    ) -> None:
-        """Show contact choices when multiple results found."""
-        embed = discord.Embed(
-            title="🔍 Multiple Contacts Found",
-            description=f"Found {len(contacts)} contacts for `{search_term}`. Please use a more specific search or contact ID.",
-            color=0xFFA500,
-        )
-
-        for i, contact in enumerate(contacts[:5], 1):  # Show max 5
-            name = contact.get("name", "Unknown")
-            email = contact.get("emailAddress", "No email")
-            email_508 = contact.get("c508Email", "No 508 email")
-            contact_id = contact.get("id", "")
-
-            contact_info = (
-                f"📧 {email}\n🏢 508 Email: {email_508}\n🆔 ID: `{contact_id}`"
-            )
-            embed.add_field(name=f"{i}. {name}", value=contact_info, inline=True)
-
-        embed.add_field(
-            name="💡 Tip",
-            value="Use the contact ID for exact matching, or be more specific with your search.",
-            inline=False,
-        )
-
-        await interaction.followup.send(embed=embed)
-
-    @app_commands.command(
-        name="link-discord-user",
-        description="Link a Discord user to a CRM contact (Steering Committee+ only)",
-    )
-    @app_commands.describe(
-        user="Discord user to link (mention them)",
-        search_term="Email, 508 email, name, or contact ID to find the contact",
-    )
-    @require_role("Steering Committee")
-    async def link_discord_user(
-        self, interaction: discord.Interaction, user: discord.Member, search_term: str
-    ) -> None:
-        """Link a Discord user to a CRM contact by updating the contact's Discord username."""
+        contact: dict[str, Any],
+    ) -> bool:
+        """Shared method to perform Discord user linking to a contact."""
         try:
-            await interaction.response.defer(ephemeral=True)
-
-            # Determine search strategy based on search_term format
-            contacts = await self._search_contact_for_linking(search_term)
-
-            if not contacts:
-                await interaction.followup.send(
-                    f"❌ No contact found for: `{search_term}`"
-                )
-                return
-
-            # Handle multiple results - show choices
-            if len(contacts) > 1:
-                await self._show_contact_choices(
-                    interaction, user, search_term, contacts
-                )
-                return
-
-            # Single result - proceed with linking
-            contact = contacts[0]
             contact_id = contact.get("id")
             contact_name = contact.get("name", "Unknown")
 
@@ -593,11 +641,98 @@ class CRMCog(commands.Cog):
                     f"Discord user {user.name} (ID: {user.id}) linked to CRM contact "
                     f"{contact_name} (ID: {contact_id}) by {interaction.user.name}"
                 )
-
+                return True
             else:
                 await interaction.followup.send(
-                    f"❌ Failed to update contact {contact_name}. Please check CRM permissions."
+                    "❌ Failed to update contact in CRM. Please try again."
                 )
+                return False
+
+        except EspoAPIError as e:
+            logger.error(f"EspoCRM API error in _perform_discord_linking: {e}")
+            await interaction.followup.send(f"❌ CRM API error: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error in _perform_discord_linking: {e}")
+            await interaction.followup.send(
+                "❌ An unexpected error occurred while linking the user."
+            )
+            return False
+
+    async def _show_contact_choices(
+        self,
+        interaction: discord.Interaction,
+        user: discord.Member,
+        search_term: str,
+        contacts: list[dict[str, Any]],
+    ) -> None:
+        """Show contact choices when multiple results found."""
+        embed = discord.Embed(
+            title="🔍 Multiple Contacts Found",
+            description=f"Found {len(contacts)} contacts for `{search_term}`. Click a button below to link the Discord user.",
+            color=0xFFA500,
+        )
+
+        # Create view with contact selection buttons
+        view = ContactSelectionView(user, search_term)
+
+        for i, contact in enumerate(contacts[:5], 1):  # Show max 5
+            name = contact.get("name", "Unknown")
+            email = contact.get("emailAddress", "No email")
+            email_508 = contact.get("c508Email", "No 508 email")
+            contact_id = contact.get("id", "")
+
+            contact_info = (
+                f"📧 {email}\n🏢 508 Email: {email_508}\n🆔 ID: `{contact_id}`"
+            )
+            embed.add_field(name=f"{i}. {name}", value=contact_info, inline=True)
+
+            # Add button for this contact
+            view.add_contact_button(contact)
+
+        embed.add_field(
+            name="💡 Tip",
+            value="Click the button for the contact you want to link, or use the contact ID for exact matching.",
+            inline=False,
+        )
+
+        await interaction.followup.send(embed=embed, view=view)
+
+    @app_commands.command(
+        name="link-discord-user",
+        description="Link a Discord user to a CRM contact (Steering Committee+ only)",
+    )
+    @app_commands.describe(
+        user="Discord user to link (mention them)",
+        search_term="Email, 508 email, name, or contact ID to find the contact",
+    )
+    @require_role("Steering Committee")
+    async def link_discord_user(
+        self, interaction: discord.Interaction, user: discord.Member, search_term: str
+    ) -> None:
+        """Link a Discord user to a CRM contact by updating the contact's Discord username."""
+        try:
+            await interaction.response.defer(ephemeral=True)
+
+            # Determine search strategy based on search_term format
+            contacts = await self._search_contact_for_linking(search_term)
+
+            if not contacts:
+                await interaction.followup.send(
+                    f"❌ No contact found for: `{search_term}`"
+                )
+                return
+
+            # Handle multiple results - show choices
+            if len(contacts) > 1:
+                await self._show_contact_choices(
+                    interaction, user, search_term, contacts
+                )
+                return
+
+            # Single result - proceed with linking
+            contact = contacts[0]
+            await self._perform_discord_linking(interaction, user, contact)
 
         except EspoAPIError as e:
             logger.error(f"EspoCRM API error in link_discord_user: {e}")

@@ -531,6 +531,56 @@ class TestCRMCog:
         embed = call_args[1]["embed"]
         assert "Multiple Contacts Found" in embed.title
 
+    @pytest.mark.asyncio
+    async def test_link_discord_user_deduplication(
+        self, crm_cog, mock_interaction, mock_admin_role
+    ):
+        """Test Discord user linking with duplicate contacts (same ID)."""
+        mock_interaction.user.roles = [mock_admin_role]
+
+        # Mock Discord user
+        mock_discord_user = Mock()
+        mock_discord_user.name = "johndoe"
+        mock_discord_user.id = 123456789
+
+        # Mock contact search response with duplicates (same ID)
+        contact_response = {
+            "list": [
+                {
+                    "id": "contact123",
+                    "name": "John Doe",
+                    "emailAddress": "john1@example.com",
+                },
+                {
+                    "id": "contact123",  # Duplicate ID
+                    "name": "John Doe",
+                    "emailAddress": "john1@example.com",
+                },
+                {
+                    "id": "contact456",
+                    "name": "John Smith",
+                    "emailAddress": "john2@example.com",
+                },
+            ]
+        }
+
+        crm_cog.espo_api.request.return_value = contact_response
+
+        # Call the command - should deduplicate and show choices
+        await crm_cog.link_discord_user.callback(
+            crm_cog, mock_interaction, mock_discord_user, "John"
+        )
+
+        # Verify choices were shown with deduplicated contacts
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        assert "embed" in call_args[1]
+        assert "view" in call_args[1]  # Should have buttons
+        embed = call_args[1]["embed"]
+        assert "Multiple Contacts Found" in embed.title
+        # Should only show 2 unique contacts, not 3
+        assert len(embed.fields) == 3  # 2 contacts + tip field
+
     def test_query_normalization_username(self, crm_cog):
         """Test that username gets @508.dev appended."""
         # This would be tested in the actual command, but we can verify the logic
