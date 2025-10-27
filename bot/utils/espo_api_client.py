@@ -38,8 +38,6 @@ def http_build_query(data: Any) -> str:
 
 
 class EspoAPI:
-    url_path = "/api/v1/"
-
     def __init__(self, url: str, api_key: str) -> None:
         self.url = url
         self.api_key = api_key
@@ -105,7 +103,7 @@ class EspoAPI:
         return response.content
 
     def normalize_url(self, action: str) -> str:
-        return self.url + self.url_path + action
+        return self.url + "/" + action
 
     @staticmethod
     def parse_reason(headers: Any) -> str:

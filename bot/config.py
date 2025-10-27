@@ -17,18 +17,20 @@ class Settings(BaseSettings):
     """
 
     discord_bot_token: str
+
+    discord_sendmsg_character_limit: int = 2000
+
+    # Email Monitoring Configuration
     channel_id: int
-    max_session_time_minutes: int = 2
     check_email_wait: int = 2
     email_username: str
     email_password: str
     imap_server: str
     smtp_server: str
-    discord_sendmsg_character_limit: int = 2000
 
     # CRM/EspoCRM settings
     espo_api_key: str
-    espo_api_url: str
+    espo_base_url: str
 
     model_config = SettingsConfigDict(env_file=".env")
 

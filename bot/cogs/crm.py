@@ -91,7 +91,11 @@ class CRMCog(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.espo_api = EspoAPI(settings.espo_api_url, settings.espo_api_key)
+        # Construct API URL from base URL
+        api_url = settings.espo_base_url.rstrip("/") + "/api/v1"
+        self.espo_api = EspoAPI(api_url, settings.espo_api_key)
+        # Store base URL for profile links
+        self.base_url = settings.espo_base_url.rstrip("/")
 
     async def _download_and_send_resume(
         self, interaction: discord.Interaction, contact_name: str, resume_id: str
@@ -191,6 +195,7 @@ class CRMCog(commands.Cog):
                 contact_type = contact.get("type", "Unknown")
                 email_508 = contact.get("c508Email", "None")
                 discord_username = contact.get("cDiscordUsername", "No Discord")
+                contact_id = contact.get("id", "")
 
                 contact_info = f"📧 {email}\n🏷️ Type: {contact_type}"
 
@@ -199,6 +204,11 @@ class CRMCog(commands.Cog):
                     contact_info += (
                         f"\n🏢 508 Email: {email_508}\n💬 Discord: {discord_username}"
                     )
+
+                # Add clickable CRM link at the top of contact info
+                if contact_id:
+                    profile_url = f"{self.base_url}/#Contact/view/{contact_id}"
+                    contact_info = f"🔗 [View in CRM]({profile_url})\n{contact_info}"
 
                 embed.add_field(name=f"👤 {name}", value=contact_info, inline=True)
 
@@ -250,7 +260,7 @@ class CRMCog(commands.Cog):
                 color=0x00FF00,
             )
             embed.add_field(name="Connected as", value=user_name, inline=True)
-            embed.add_field(name="API URL", value=settings.espo_api_url, inline=True)
+            embed.add_field(name="Base URL", value=settings.espo_base_url, inline=True)
 
             await interaction.followup.send(embed=embed)
 

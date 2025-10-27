@@ -101,6 +101,10 @@ def mock_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EMAIL_USERNAME", "test@example.com")
     monkeypatch.setenv("EMAIL_PASSWORD", "test_password")
     monkeypatch.setenv("CHANNEL_ID", "123456789")
+    monkeypatch.setenv("IMAP_SERVER", "imap.test.com")
+    monkeypatch.setenv("SMTP_SERVER", "smtp.test.com")
+    monkeypatch.setenv("ESPO_API_KEY", "test_api_key")
+    monkeypatch.setenv("ESPO_BASE_URL", "https://crm.test.com")
 
 
 @pytest.fixture

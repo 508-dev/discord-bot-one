@@ -117,7 +117,7 @@ If you want to test with your own bot instead of the production bot:
 - `IMAP_SERVER` - IMAP server hostname (e.g., `imap.gmail.com`)
 - `SMTP_SERVER` - SMTP server hostname (e.g., `smtp.gmail.com`)
 - `ESPO_API_KEY` - EspoCRM API key for CRM integration
-- `ESPO_API_URL` - EspoCRM base URL (e.g., `https://crm.508.dev/`)
+- `ESPO_BASE_URL` - EspoCRM base URL (e.g., `https://crm.508.dev`)
 
 ### Optional (with defaults)
 - `CHECK_EMAIL_WAIT` - Email check interval in minutes (default: 2)
