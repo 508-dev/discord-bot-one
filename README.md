@@ -44,12 +44,6 @@ discord-bot-one/
 - Commands: `/crm-contacts` (search contacts), `/get-resume` (download resume), `/crm-status` (API health)
 - Role hierarchy: Owner > Admin > Steering Committee > Member (higher roles inherit lower role permissions)
 
-### Coolify Deployment ([`bot/cogs/coolify.py`](bot/cogs/coolify.py))
-- Trigger application redeployments directly from Discord
-- Secure deployment control with Admin role requirement
-- Real-time deployment status feedback
-- Commands: `/redeploy` (trigger redeployment)
-
 ## Quick Start (Local Development)
 
 For local development and testing. Production deployment is handled by [Coolify](https://coolify.508.dev/).
@@ -130,9 +124,6 @@ If you want to test with your own bot instead of the production bot:
 - `SMTP_SERVER` - SMTP server hostname (e.g., `smtp.gmail.com`)
 - `ESPO_API_KEY` - EspoCRM API key for CRM integration
 - `ESPO_BASE_URL` - EspoCRM base URL (e.g., `https://crm.508.dev`)
-- `COOLIFY_API_KEY` - Coolify API key for deployment triggers
-- `COOLIFY_BASE_URL` - Coolify base URL (e.g., `https://coolify.508.dev`)
-- `COOLIFY_RESOURCE_ID` - Coolify application resource ID for deployments
 
 ### Optional (with defaults)
 - `CHECK_EMAIL_WAIT` - Email check interval in minutes (default: 2)
