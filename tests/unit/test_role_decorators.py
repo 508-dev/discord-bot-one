@@ -283,6 +283,9 @@ class TestHierarchicalRoles:
         member_role = Mock()
         member_role.name = "Member"
 
+        steering_committee_role = Mock()
+        steering_committee_role.name = "Steering Committee"
+
         admin_role = Mock()
         admin_role.name = "Admin"
 
@@ -294,6 +297,7 @@ class TestHierarchicalRoles:
 
         return {
             "member": member_role,
+            "steering_committee": steering_committee_role,
             "admin": admin_role,
             "owner": owner_role,
             "user": user_role,
@@ -315,12 +319,36 @@ class TestHierarchicalRoles:
         result = check_user_roles_with_hierarchy(roles, ["Member"])
         assert result is True
 
+    def test_check_user_roles_with_hierarchy_steering_committee_grants_member_access(
+        self, mock_roles_with_hierarchy
+    ):
+        """Test that Steering Committee role grants Member access."""
+        roles = [mock_roles_with_hierarchy["steering_committee"]]
+        result = check_user_roles_with_hierarchy(roles, ["Member"])
+        assert result is True
+
+    def test_check_user_roles_with_hierarchy_admin_grants_steering_committee_access(
+        self, mock_roles_with_hierarchy
+    ):
+        """Test that Admin role grants Steering Committee access."""
+        roles = [mock_roles_with_hierarchy["admin"]]
+        result = check_user_roles_with_hierarchy(roles, ["Steering Committee"])
+        assert result is True
+
     def test_check_user_roles_with_hierarchy_owner_grants_member_access(
         self, mock_roles_with_hierarchy
     ):
         """Test that Owner role grants Member access."""
         roles = [mock_roles_with_hierarchy["owner"]]
         result = check_user_roles_with_hierarchy(roles, ["Member"])
+        assert result is True
+
+    def test_check_user_roles_with_hierarchy_owner_grants_steering_committee_access(
+        self, mock_roles_with_hierarchy
+    ):
+        """Test that Owner role grants Steering Committee access."""
+        roles = [mock_roles_with_hierarchy["owner"]]
+        result = check_user_roles_with_hierarchy(roles, ["Steering Committee"])
         assert result is True
 
     def test_check_user_roles_with_hierarchy_owner_grants_admin_access(
@@ -331,11 +359,27 @@ class TestHierarchicalRoles:
         result = check_user_roles_with_hierarchy(roles, ["Admin"])
         assert result is True
 
+    def test_check_user_roles_with_hierarchy_member_denied_steering_committee_access(
+        self, mock_roles_with_hierarchy
+    ):
+        """Test that Member role does not grant Steering Committee access."""
+        roles = [mock_roles_with_hierarchy["member"]]
+        result = check_user_roles_with_hierarchy(roles, ["Steering Committee"])
+        assert result is False
+
     def test_check_user_roles_with_hierarchy_member_denied_admin_access(
         self, mock_roles_with_hierarchy
     ):
         """Test that Member role does not grant Admin access."""
         roles = [mock_roles_with_hierarchy["member"]]
+        result = check_user_roles_with_hierarchy(roles, ["Admin"])
+        assert result is False
+
+    def test_check_user_roles_with_hierarchy_steering_committee_denied_admin_access(
+        self, mock_roles_with_hierarchy
+    ):
+        """Test that Steering Committee role does not grant Admin access."""
+        roles = [mock_roles_with_hierarchy["steering_committee"]]
         result = check_user_roles_with_hierarchy(roles, ["Admin"])
         assert result is False
 
@@ -377,17 +421,25 @@ class TestHierarchicalRoles:
         level = get_user_hierarchy_level(roles)
         assert level == 0  # Member is level 0
 
+    def test_get_user_hierarchy_level_steering_committee(
+        self, mock_roles_with_hierarchy
+    ):
+        """Test getting hierarchy level for Steering Committee."""
+        roles = [mock_roles_with_hierarchy["steering_committee"]]
+        level = get_user_hierarchy_level(roles)
+        assert level == 1  # Steering Committee is level 1
+
     def test_get_user_hierarchy_level_admin(self, mock_roles_with_hierarchy):
         """Test getting hierarchy level for Admin."""
         roles = [mock_roles_with_hierarchy["admin"]]
         level = get_user_hierarchy_level(roles)
-        assert level == 1  # Admin is level 1
+        assert level == 2  # Admin is level 2
 
     def test_get_user_hierarchy_level_owner(self, mock_roles_with_hierarchy):
         """Test getting hierarchy level for Owner."""
         roles = [mock_roles_with_hierarchy["owner"]]
         level = get_user_hierarchy_level(roles)
-        assert level == 2  # Owner is level 2
+        assert level == 3  # Owner is level 3
 
     def test_get_user_hierarchy_level_no_hierarchical_roles(
         self, mock_roles_with_hierarchy
@@ -404,7 +456,7 @@ class TestHierarchicalRoles:
             mock_roles_with_hierarchy["admin"],
         ]
         level = get_user_hierarchy_level(roles)
-        assert level == 1  # Highest is Admin (level 1)
+        assert level == 2  # Highest is Admin (level 2)
 
     @pytest.mark.asyncio
     async def test_require_role_with_admin_grants_member_access(

@@ -105,6 +105,9 @@ def mock_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SMTP_SERVER", "smtp.test.com")
     monkeypatch.setenv("ESPO_API_KEY", "test_api_key")
     monkeypatch.setenv("ESPO_BASE_URL", "https://crm.test.com")
+    monkeypatch.setenv("COOLIFY_API_KEY", "test_coolify_key")
+    monkeypatch.setenv("COOLIFY_BASE_URL", "https://coolify.test.com")
+    monkeypatch.setenv("COOLIFY_RESOURCE_ID", "test_resource_id")
 
 
 @pytest.fixture

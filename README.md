@@ -42,7 +42,13 @@ discord-bot-one/
 - Search contacts and download resumes with role-based access control
 - Interactive resume download buttons for easy access
 - Commands: `/crm-contacts` (search contacts), `/get-resume` (download resume), `/crm-status` (API health)
-- Role hierarchy: Owner > Admin > Member (higher roles inherit lower role permissions)
+- Role hierarchy: Owner > Admin > Steering Committee > Member (higher roles inherit lower role permissions)
+
+### Coolify Deployment ([`bot/cogs/coolify.py`](bot/cogs/coolify.py))
+- Trigger application redeployments directly from Discord
+- Secure deployment control with Admin role requirement
+- Real-time deployment status feedback
+- Commands: `/redeploy` (trigger redeployment)
 
 ## Quick Start (Local Development)
 
@@ -96,13 +102,19 @@ If you want to test with your own bot instead of the production bot:
    uv sync
    ```
 
-3. **Set up environment variables:**
+3. **Set up pre-commit hooks (optional but recommended):**
+   ```bash
+   uv run pre-commit install
+   ```
+   This installs git hooks that automatically run formatting and type checking before commits.
+
+4. **Set up environment variables:**
    ```bash
    cp .env.example .env
    # Edit .env with your values
    ```
 
-4. **Run the bot:**
+5. **Run the bot:**
    ```bash
    python main.py
    ```
@@ -118,6 +130,9 @@ If you want to test with your own bot instead of the production bot:
 - `SMTP_SERVER` - SMTP server hostname (e.g., `smtp.gmail.com`)
 - `ESPO_API_KEY` - EspoCRM API key for CRM integration
 - `ESPO_BASE_URL` - EspoCRM base URL (e.g., `https://crm.508.dev`)
+- `COOLIFY_API_KEY` - Coolify API key for deployment triggers
+- `COOLIFY_BASE_URL` - Coolify base URL (e.g., `https://coolify.508.dev`)
+- `COOLIFY_RESOURCE_ID` - Coolify application resource ID for deployments
 
 ### Optional (with defaults)
 - `CHECK_EMAIL_WAIT` - Email check interval in minutes (default: 2)

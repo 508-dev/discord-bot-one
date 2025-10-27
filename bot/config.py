@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     espo_api_key: str
     espo_base_url: str
 
+    # Coolify deployment settings
+    coolify_api_key: str
+    coolify_base_url: str
+    coolify_resource_id: str
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

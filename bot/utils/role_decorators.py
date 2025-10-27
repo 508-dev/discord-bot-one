@@ -15,7 +15,7 @@ def require_roles(
     """
     Decorator to require specific roles for command access.
 
-    Role hierarchy: Owner > Admin > Member
+    Role hierarchy: Owner > Admin > Steering Committee > Member
     If a higher role is present, it grants access to lower role requirements.
 
     Args:
@@ -108,7 +108,7 @@ def check_user_roles_with_hierarchy(
     """
     Check if user has any of the required roles, considering role hierarchy.
 
-    Role hierarchy: Owner > Admin > Member
+    Role hierarchy: Owner > Admin > Steering Committee > Member
     If a user has a higher role, they automatically have access to lower role requirements.
 
     Args:
@@ -119,7 +119,7 @@ def check_user_roles_with_hierarchy(
         True if user has at least one required role or a higher role, False otherwise
     """
     # Define role hierarchy (higher index = higher priority)
-    ROLE_HIERARCHY = ["Member", "Admin", "Owner"]
+    ROLE_HIERARCHY = ["Member", "Steering Committee", "Admin", "Owner"]
 
     user_role_names = {role.name for role in user_roles}
 
@@ -152,9 +152,9 @@ def get_user_hierarchy_level(user_roles: List[discord.Role]) -> int:
         user_roles: List of Discord roles the user has
 
     Returns:
-        Highest role level (-1 if no hierarchical roles, 0=Member, 1=Admin, 2=Owner)
+        Highest role level (-1 if no hierarchical roles, 0=Member, 1=Steering Committee, 2=Admin, 3=Owner)
     """
-    ROLE_HIERARCHY = ["Member", "Admin", "Owner"]
+    ROLE_HIERARCHY = ["Member", "Steering Committee", "Admin", "Owner"]
     user_role_names = {role.name for role in user_roles}
 
     highest_level = -1
