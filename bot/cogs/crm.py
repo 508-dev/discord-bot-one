@@ -296,14 +296,14 @@ class CRMCog(commands.Cog):
                 email = contact.get("emailAddress", "No email")
                 contact_type = contact.get("type", "Unknown")
                 email_508 = contact.get("c508Email", "None")
-                discord_username = contact.get("cDiscordUsername", "No Discord")
+                discord_username = contact.get("cDiscordUsername") or "No Discord"
                 discord_user_id = contact.get("cDiscordUserID")
                 contact_id = contact.get("id", "")
 
                 # Create Discord display with @mention if user ID exists
                 # Remove "(ID: ...)" from stored username for cleaner display
                 clean_discord_username = discord_username
-                if " (ID: " in discord_username:
+                if discord_username and " (ID: " in discord_username:
                     clean_discord_username = discord_username.split(" (ID: ")[0]
 
                 discord_display = clean_discord_username
