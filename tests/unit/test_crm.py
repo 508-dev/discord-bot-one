@@ -581,6 +581,124 @@ class TestCRMCog:
         # Should only show 2 unique contacts, not 3
         assert len(embed.fields) == 3  # 2 contacts + tip field
 
+    @pytest.mark.asyncio
+    async def test_unlinked_discord_users_with_unlinked_users(
+        self, crm_cog, mock_interaction, mock_admin_role
+    ):
+        """Test unlinked Discord users command with some unlinked users."""
+        mock_interaction.user.roles = [mock_admin_role]
+
+        # Mock guild with members
+        mock_guild = Mock()
+        mock_interaction.guild = mock_guild
+
+        # Create mock members - some linked, some not
+        mock_member1 = Mock()
+        mock_member1.id = 111111111
+        mock_member1.display_name = "Alice"
+        mock_member1.mention = "<@111111111>"
+        mock_member1.bot = False
+        mock_member1.roles = [Mock()]
+        mock_member1.roles[0].name = "Member"
+
+        mock_member2 = Mock()
+        mock_member2.id = 222222222
+        mock_member2.display_name = "Bob"
+        mock_member2.mention = "<@222222222>"
+        mock_member2.bot = False
+        mock_member2.roles = [Mock()]
+        mock_member2.roles[0].name = "Admin"
+
+        mock_member3 = Mock()  # This one is linked
+        mock_member3.id = 333333333
+        mock_member3.display_name = "Charlie"
+        mock_member3.bot = False
+        mock_member3.roles = [Mock()]
+        mock_member3.roles[0].name = "Member"
+
+        mock_guild.members = [mock_member1, mock_member2, mock_member3]
+
+        # Mock CRM response - Charlie is linked, others are not
+        crm_response = {
+            "list": [
+                {"cDiscordUserID": "333333333"}  # Charlie is linked
+            ]
+        }
+        crm_cog.espo_api.request.return_value = crm_response
+
+        # Call the command
+        await crm_cog.unlinked_discord_users.callback(crm_cog, mock_interaction)
+
+        # Verify API call
+        crm_cog.espo_api.request.assert_called_once()
+        call_args = crm_cog.espo_api.request.call_args
+        assert call_args[0][0] == "GET"
+        assert call_args[0][1] == "Contact"
+        search_params = call_args[0][2]
+        assert search_params["where"][0]["type"] == "isNotNull"
+        assert search_params["where"][0]["attribute"] == "cDiscordUserID"
+
+        # Verify response contains unlinked users (Alice and Bob)
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        message_text = call_args[0][0]
+        assert "Unlinked Discord Users (2)" in message_text
+        assert "<@111111111>" in message_text  # Alice's mention
+        assert "<@222222222>" in message_text  # Bob's mention
+
+    @pytest.mark.asyncio
+    async def test_unlinked_discord_users_all_linked(
+        self, crm_cog, mock_interaction, mock_admin_role
+    ):
+        """Test unlinked Discord users command when all users are linked."""
+        mock_interaction.user.roles = [mock_admin_role]
+
+        # Mock guild with members
+        mock_guild = Mock()
+        mock_interaction.guild = mock_guild
+
+        # Create mock member
+        mock_member = Mock()
+        mock_member.id = 111111111
+        mock_member.bot = False
+        mock_member.roles = [Mock()]
+        mock_member.roles[0].name = "Member"
+
+        mock_guild.members = [mock_member]
+
+        # Mock CRM response - member is linked
+        crm_response = {
+            "list": [
+                {"cDiscordUserID": "111111111"}  # Member is linked
+            ]
+        }
+        crm_cog.espo_api.request.return_value = crm_response
+
+        # Call the command
+        await crm_cog.unlinked_discord_users.callback(crm_cog, mock_interaction)
+
+        # Verify response shows all linked
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        message_text = call_args[0][0]
+        assert "All Members Linked" in message_text
+
+    @pytest.mark.asyncio
+    async def test_unlinked_discord_users_no_guild(
+        self, crm_cog, mock_interaction, mock_admin_role
+    ):
+        """Test unlinked Discord users command when not in a guild."""
+        mock_interaction.user.roles = [mock_admin_role]
+        mock_interaction.guild = None
+
+        # Call the command
+        await crm_cog.unlinked_discord_users.callback(crm_cog, mock_interaction)
+
+        # Verify error response
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        assert "❌ This command can only be used in a server." in call_args[0][0]
+
     def test_query_normalization_username(self, crm_cog):
         """Test that username gets @508.dev appended."""
         # This would be tested in the actual command, but we can verify the logic

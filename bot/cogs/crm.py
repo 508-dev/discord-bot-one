@@ -14,7 +14,10 @@ import discord
 
 from bot.config import settings
 from bot.utils.espo_api_client import EspoAPI, EspoAPIError
-from bot.utils.role_decorators import require_role, check_user_roles_with_hierarchy
+from bot.utils.role_decorators import (
+    require_role,
+    check_user_roles_with_hierarchy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -742,6 +745,121 @@ class CRMCog(commands.Cog):
             await interaction.followup.send(
                 "❌ An unexpected error occurred while linking the Discord user."
             )
+
+    @app_commands.command(
+        name="unlinked-discord-users",
+        description="List Discord users with Member role who aren't linked in CRM (Steering Committee+ only)",
+    )
+    @require_role("Steering Committee")
+    async def unlinked_discord_users(self, interaction: discord.Interaction) -> None:
+        """Find Discord users with Member role who don't have CRM links."""
+        try:
+            await interaction.response.defer(ephemeral=True)
+
+            if not interaction.guild:
+                await interaction.followup.send(
+                    "❌ This command can only be used in a server."
+                )
+                return
+
+            # Get all contacts that have Discord user IDs set
+            linked_user_ids = await self._get_linked_discord_user_ids()
+
+            # Get all guild members with Member role
+            member_role_users = []
+            for member in interaction.guild.members:
+                if not member.bot and hasattr(member, "roles"):
+                    if check_user_roles_with_hierarchy(member.roles, ["Member"]):
+                        member_role_users.append(member)
+
+            # Find unlinked users
+            unlinked_users = []
+            for member in member_role_users:
+                if str(member.id) not in linked_user_ids:
+                    unlinked_users.append(member)
+
+            if not unlinked_users:
+                await interaction.followup.send(
+                    "✅ **All Members Linked**\nAll Discord users with Member role are linked in the CRM!"
+                )
+                return
+
+            # Send list of unlinked users
+            await self._send_unlinked_users_list(interaction, unlinked_users)
+
+        except EspoAPIError as e:
+            logger.error(f"EspoCRM API error in unlinked_discord_users: {e}")
+            await interaction.followup.send(f"❌ CRM API error: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error in unlinked_discord_users: {e}")
+            await interaction.followup.send(
+                "❌ An unexpected error occurred while checking unlinked users."
+            )
+
+    async def _get_linked_discord_user_ids(self) -> set[str]:
+        """Get all Discord user IDs that are linked in the CRM."""
+        search_params = {
+            "where": [
+                {
+                    "type": "isNotNull",
+                    "attribute": "cDiscordUserID",
+                }
+            ],
+            "maxSize": 200,  # Adjust based on your needs
+            "select": "cDiscordUserID",
+        }
+
+        response = self.espo_api.request("GET", "Contact", search_params)
+        contacts = response.get("list", [])
+
+        linked_ids = set()
+        for contact in contacts:
+            discord_id = contact.get("cDiscordUserID")
+            if discord_id and discord_id != "No Discord":
+                linked_ids.add(discord_id)
+
+        return linked_ids
+
+    async def _send_unlinked_users_list(
+        self, interaction: discord.Interaction, unlinked_users: list[discord.Member]
+    ) -> None:
+        """Send list of unlinked users as simple text."""
+        # Create simple text list with mentions and display names
+        user_lines = []
+        for member in unlinked_users:
+            user_lines.append(f"{member.mention} ({member.display_name})")
+
+        # Create message content
+        header = f"🔗 **Unlinked Discord Users ({len(unlinked_users)})**\n"
+        user_list = "\n".join(user_lines)
+        footer = "\n\n💡 Use `/link-discord-user @user <email/name/id>` to link these users to CRM contacts."
+
+        message = header + user_list + footer
+
+        # Discord message limit is 2000 characters, split if needed
+        if len(message) <= 2000:
+            await interaction.followup.send(message)
+        else:
+            # Split into multiple messages if too long
+            messages = []
+            current_message = header
+
+            for user_line in user_lines:
+                test_message = current_message + user_line + "\n"
+                if len(test_message + footer) <= 2000:
+                    current_message = test_message
+                else:
+                    # Send current message and start new one
+                    messages.append(current_message.rstrip())
+                    current_message = user_line + "\n"
+
+            # Add the last message with footer
+            if current_message.strip():
+                messages.append(current_message.rstrip() + footer)
+
+            # Send all messages
+            for message in messages:
+                await interaction.followup.send(message)
 
 
 async def setup(bot: commands.Bot) -> None:
