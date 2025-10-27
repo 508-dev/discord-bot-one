@@ -41,7 +41,7 @@ discord-bot-one/
 - Connect to EspoCRM for customer relationship management
 - Search contacts and download resumes with role-based access control
 - Interactive resume download buttons for easy access
-- Commands: `/crm-contacts` (search contacts), `/get-resume` (download resume), `/crm-status` (API health)
+- Commands: `/crm-contacts` (search contacts), `/get-resume` (download resume), `/crm-status` (API health), `/link-discord-user` (Steering Committee+ only: link Discord users to CRM contacts)
 - Role hierarchy: Owner > Admin > Steering Committee > Member (higher roles inherit lower role permissions)
 
 ### Healthcheck Endpoint ([`bot/utils/healthcheck.py`](bot/utils/healthcheck.py))

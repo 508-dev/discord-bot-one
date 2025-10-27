@@ -261,6 +261,276 @@ class TestCRMCog:
             "❌ No resume found for John Doe"
         )
 
+    @pytest.mark.asyncio
+    async def test_link_discord_user_success(
+        self, crm_cog, mock_interaction, mock_admin_role
+    ):
+        """Test successful Discord user linking."""
+        mock_interaction.user.roles = [mock_admin_role]
+
+        # Mock Discord user
+        mock_discord_user = Mock()
+        mock_discord_user.name = "johndoe"
+        mock_discord_user.id = 123456789
+        mock_discord_user.mention = "<@123456789>"
+        mock_discord_user.discriminator = "1234"
+
+        # Mock contact search response
+        contact_response = {
+            "list": [
+                {
+                    "id": "contact123",
+                    "name": "John Doe",
+                    "emailAddress": "john@example.com",
+                    "c508Email": "john@508.dev",
+                    "cDiscordUsername": "olduser#0000 (ID: 987654321)",
+                }
+            ]
+        }
+
+        # Mock update response
+        update_response = {"id": "contact123"}
+
+        crm_cog.espo_api.request.side_effect = [contact_response, update_response]
+
+        # Call the command
+        await crm_cog.link_discord_user.callback(
+            crm_cog, mock_interaction, mock_discord_user, "john"
+        )
+
+        # Verify API calls
+        assert crm_cog.espo_api.request.call_count == 2
+
+        # Verify search call
+        search_call = crm_cog.espo_api.request.call_args_list[0]
+        assert search_call[0][0] == "GET"
+        assert search_call[0][1] == "Contact"
+
+        # Verify update call
+        update_call = crm_cog.espo_api.request.call_args_list[1]
+        assert update_call[0][0] == "PUT"
+        assert update_call[0][1] == "Contact/contact123"
+        assert "cDiscordUsername" in update_call[0][2]
+        assert "johndoe#1234 (ID: 123456789)" in update_call[0][2]["cDiscordUsername"]
+        assert "cDiscordUserID" in update_call[0][2]
+        assert update_call[0][2]["cDiscordUserID"] == "123456789"
+
+        # Verify success response
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        assert "embed" in call_args[1]
+
+    @pytest.mark.asyncio
+    async def test_link_discord_user_contact_not_found(
+        self, crm_cog, mock_interaction, mock_admin_role
+    ):
+        """Test Discord user linking when contact not found."""
+        mock_interaction.user.roles = [mock_admin_role]
+
+        # Mock Discord user
+        mock_discord_user = Mock()
+        mock_discord_user.name = "johndoe"
+
+        # Mock empty contact response
+        crm_cog.espo_api.request.return_value = {"list": []}
+
+        await crm_cog.link_discord_user.callback(
+            crm_cog, mock_interaction, mock_discord_user, "nonexistent"
+        )
+
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        assert "❌ No contact found" in call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_link_discord_user_name_search(
+        self, crm_cog, mock_interaction, mock_admin_role
+    ):
+        """Test name search in Discord user linking."""
+        mock_interaction.user.roles = [mock_admin_role]
+
+        # Mock Discord user
+        mock_discord_user = Mock()
+        mock_discord_user.name = "johndoe"
+
+        # Mock contact response
+        contact_response = {"list": []}
+        crm_cog.espo_api.request.return_value = contact_response
+
+        # Test username normalization
+        await crm_cog.link_discord_user.callback(
+            crm_cog, mock_interaction, mock_discord_user, "john"
+        )
+
+        # Verify the search was performed (should search by name since "john" has no @ or space)
+        call_args = crm_cog.espo_api.request.call_args
+        search_params = call_args[0][2]  # Third argument is the search params
+        # Check that it searched for "john" as a name
+        assert search_params["where"][0]["attribute"] == "name"
+        assert search_params["where"][0]["value"] == "john"
+
+    @pytest.mark.asyncio
+    async def test_link_discord_user_modern_username(
+        self, crm_cog, mock_interaction, mock_admin_role
+    ):
+        """Test Discord user linking with modern username (no discriminator)."""
+        mock_interaction.user.roles = [mock_admin_role]
+
+        # Mock Discord user without discriminator
+        mock_discord_user = Mock()
+        mock_discord_user.name = "johndoe"
+        mock_discord_user.id = 123456789
+        mock_discord_user.discriminator = "0"  # Modern Discord users have "0"
+
+        # Mock contact and update responses
+        contact_response = {
+            "list": [
+                {
+                    "id": "contact123",
+                    "name": "John Doe",
+                    "cDiscordUsername": "",
+                }
+            ]
+        }
+        update_response = {"id": "contact123"}
+
+        crm_cog.espo_api.request.side_effect = [contact_response, update_response]
+
+        await crm_cog.link_discord_user.callback(
+            crm_cog, mock_interaction, mock_discord_user, "john@508.dev"
+        )
+
+        # Verify update call used format without discriminator
+        update_call = crm_cog.espo_api.request.call_args_list[1]
+        discord_username = update_call[0][2]["cDiscordUsername"]
+        assert discord_username == "johndoe (ID: 123456789)"
+        assert "#0" not in discord_username
+        assert "cDiscordUserID" in update_call[0][2]
+        assert update_call[0][2]["cDiscordUserID"] == "123456789"
+
+    @pytest.mark.asyncio
+    async def test_link_discord_user_hex_id_search(
+        self, crm_cog, mock_interaction, mock_admin_role
+    ):
+        """Test Discord user linking with hex contact ID."""
+        mock_interaction.user.roles = [mock_admin_role]
+
+        # Mock Discord user
+        mock_discord_user = Mock()
+        mock_discord_user.name = "johndoe"
+        mock_discord_user.id = 123456789
+        mock_discord_user.mention = "<@123456789>"
+        mock_discord_user.discriminator = "0"
+
+        # Mock contact response for direct ID lookup
+        contact_response = {
+            "id": "65a6b62400e7d0079",
+            "name": "John Doe",
+            "emailAddress": "john@example.com",
+        }
+        update_response = {"id": "65a6b62400e7d0079"}
+
+        crm_cog.espo_api.request.side_effect = [contact_response, update_response]
+
+        # Call the command with hex ID
+        await crm_cog.link_discord_user.callback(
+            crm_cog, mock_interaction, mock_discord_user, "65a6b62400e7d0079"
+        )
+
+        # Verify direct ID lookup was used
+        first_call = crm_cog.espo_api.request.call_args_list[0]
+        assert first_call[0][0] == "GET"
+        assert first_call[0][1] == "Contact/65a6b62400e7d0079"
+
+        # Verify success response
+        mock_interaction.followup.send.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_link_discord_user_email_search(
+        self, crm_cog, mock_interaction, mock_admin_role
+    ):
+        """Test Discord user linking with email search."""
+        mock_interaction.user.roles = [mock_admin_role]
+
+        # Mock Discord user
+        mock_discord_user = Mock()
+        mock_discord_user.name = "johndoe"
+        mock_discord_user.id = 123456789
+        mock_discord_user.mention = "<@123456789>"
+        mock_discord_user.discriminator = "0"
+
+        # Mock contact search response
+        contact_response = {
+            "list": [
+                {
+                    "id": "contact123",
+                    "name": "John Doe",
+                    "emailAddress": "john@508.dev",
+                }
+            ]
+        }
+        update_response = {"id": "contact123"}
+
+        crm_cog.espo_api.request.side_effect = [contact_response, update_response]
+
+        # Call the command with email
+        await crm_cog.link_discord_user.callback(
+            crm_cog, mock_interaction, mock_discord_user, "john@508.dev"
+        )
+
+        # Verify email search was used
+        search_call = crm_cog.espo_api.request.call_args_list[0]
+        assert search_call[0][0] == "GET"
+        assert search_call[0][1] == "Contact"
+        search_params = search_call[0][2]
+        assert search_params["where"][0]["type"] == "or"
+        # Check that it searches both email fields
+        email_searches = search_params["where"][0]["value"]
+        assert any(param["attribute"] == "emailAddress" for param in email_searches)
+        assert any(param["attribute"] == "c508Email" for param in email_searches)
+
+    @pytest.mark.asyncio
+    async def test_link_discord_user_multiple_results(
+        self, crm_cog, mock_interaction, mock_admin_role
+    ):
+        """Test Discord user linking when multiple contacts found."""
+        mock_interaction.user.roles = [mock_admin_role]
+
+        # Mock Discord user
+        mock_discord_user = Mock()
+        mock_discord_user.name = "johndoe"
+        mock_discord_user.id = 123456789
+
+        # Mock contact search response with multiple results
+        contact_response = {
+            "list": [
+                {
+                    "id": "contact123",
+                    "name": "John Doe",
+                    "emailAddress": "john1@example.com",
+                },
+                {
+                    "id": "contact456",
+                    "name": "John Smith",
+                    "emailAddress": "john2@example.com",
+                },
+            ]
+        }
+
+        crm_cog.espo_api.request.return_value = contact_response
+
+        # Call the command with a name that returns multiple results
+        await crm_cog.link_discord_user.callback(
+            crm_cog, mock_interaction, mock_discord_user, "John"
+        )
+
+        # Verify choices were shown instead of linking
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        assert "embed" in call_args[1]
+        embed = call_args[1]["embed"]
+        assert "Multiple Contacts Found" in embed.title
+
     def test_query_normalization_username(self, crm_cog):
         """Test that username gets @508.dev appended."""
         # This would be tested in the actual command, but we can verify the logic
