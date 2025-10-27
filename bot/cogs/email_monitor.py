@@ -29,7 +29,7 @@ class EmailMonitor(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.task_poll_inbox.start()
+        # self.task_poll_inbox.start()
 
     async def cog_unload(self) -> None:
         """Cancel the background task when cog is unloaded."""
