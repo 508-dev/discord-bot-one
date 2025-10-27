@@ -20,6 +20,9 @@ class Settings(BaseSettings):
 
     discord_sendmsg_character_limit: int = 2000
 
+    # Healthcheck Configuration
+    healthcheck_port: int = 3000
+
     # Email Monitoring Configuration
     channel_id: int
     check_email_wait: int = 2

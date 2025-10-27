@@ -8,10 +8,12 @@ Discord events, and provides the factory function for bot creation.
 import logging
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 import discord
 from discord.ext import commands
 
 from bot.config import settings
+from bot.utils.healthcheck import HealthcheckServer, start_healthcheck_server
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +32,17 @@ class Bot508(commands.Bot):
         super().__init__(command_prefix="$508$", intents=intents)
         # Remove the default help command since we're using slash commands
         self.remove_command("help")
+        self.healthcheck_server: Optional[HealthcheckServer] = None
 
     async def setup_hook(self) -> None:
         """Load all cogs automatically."""
         await self.load_extensions()
+
+        # Start healthcheck server
+        try:
+            self.healthcheck_server = await start_healthcheck_server(self)
+        except Exception as e:
+            logger.error(f"Failed to start healthcheck server: {e}")
 
     async def load_extensions(self) -> None:
         """Load all cog files from the cogs directory."""
@@ -64,6 +73,12 @@ class Bot508(commands.Bot):
             await channel.send(
                 f"🤖 508.dev Bot activated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             )
+
+    async def close(self) -> None:
+        """Clean shutdown of bot and healthcheck server."""
+        if self.healthcheck_server:
+            await self.healthcheck_server.stop()
+        await super().close()
 
 
 def create_bot() -> Bot508:

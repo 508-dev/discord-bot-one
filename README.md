@@ -44,6 +44,12 @@ discord-bot-one/
 - Commands: `/crm-contacts` (search contacts), `/get-resume` (download resume), `/crm-status` (API health)
 - Role hierarchy: Owner > Admin > Steering Committee > Member (higher roles inherit lower role permissions)
 
+### Healthcheck Endpoint ([`bot/utils/healthcheck.py`](bot/utils/healthcheck.py))
+- HTTP endpoint for monitoring bot health and status
+- Returns JSON with bot metrics, uptime, and cog status
+- Accessible at `http://localhost:8080/health` (configurable port)
+- Returns HTTP 200 when healthy, 503 when bot is not ready
+
 ## Quick Start (Local Development)
 
 For local development and testing. Production deployment is handled by [Coolify](https://coolify.508.dev/).
@@ -129,6 +135,7 @@ If you want to test with your own bot instead of the production bot:
 - `CHECK_EMAIL_WAIT` - Email check interval in minutes (default: 2)
 - `MAX_SESSION_TIME_MINUTES` - Max session time (default: 2)
 - `DISCORD_SENDMSG_CHARACTER_LIMIT` - Message length limit (default: 2000)
+- `HEALTHCHECK_PORT` - Port for healthcheck HTTP endpoint (default: 8080)
 
 ## Adding New Features
 

@@ -364,6 +364,7 @@ name = "discord-bot-one"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "aiohttp" },
     { name = "discord-py" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -386,6 +387,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.13.1" },
     { name = "discord-py", specifier = "~=2.6.0" },
     { name = "pydantic", specifier = "~=2.10" },
     { name = "pydantic-settings", specifier = "~=2.8" },
