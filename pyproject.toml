@@ -20,6 +20,8 @@ dev = [
     "mypy~=1.14",
     "watchfiles>=1.1.1",
     "types-requests>=2.32.4.20250913",
+    "pre-commit>=3.7",
+    "pre-commit-uv",
 ]
 
 [tool.pytest.ini_options]
