@@ -11,7 +11,6 @@ import email
 import logging
 from textwrap import wrap
 from discord.ext import commands, tasks
-from discord import app_commands
 import discord
 
 from bot.config import settings
@@ -150,24 +149,24 @@ class EmailMonitor(commands.Cog):
         mail.logout()
         logger.debug("end of this iteration")
 
-    @app_commands.command(name="start-email", description="Start email polling task")
-    async def st(self, interaction: discord.Interaction) -> None:
-        """Start email polling task."""
-        await interaction.response.send_message(
-            f"Polling for emails every {settings.check_email_wait} minutes"
-        )
-        if not self.task_poll_inbox.is_running():
-            self.task_poll_inbox.start()
+    # @app_commands.command(name="start-email", description="Start email polling task")
+    # async def st(self, interaction: discord.Interaction) -> None:
+    #     """Start email polling task."""
+    #     await interaction.response.send_message(
+    #         f"Polling for emails every {settings.check_email_wait} minutes"
+    #     )
+    #     if not self.task_poll_inbox.is_running():
+    #         self.task_poll_inbox.start()
 
-    @app_commands.command(
-        name="email-status", description="Check if email polling task is running"
-    )
-    async def is_running(self, interaction: discord.Interaction) -> None:
-        """Check if email polling task is running."""
-        status = "is" if self.task_poll_inbox.is_running() else "isn't"
-        await interaction.response.send_message(
-            f"Inbox polling task *{status}* running"
-        )
+    # @app_commands.command(
+    #     name="email-status", description="Check if email polling task is running"
+    # )
+    # async def is_running(self, interaction: discord.Interaction) -> None:
+    #     """Check if email polling task is running."""
+    #     status = "is" if self.task_poll_inbox.is_running() else "isn't"
+    #     await interaction.response.send_message(
+    #         f"Inbox polling task *{status}* running"
+    #     )
 
 
 async def setup(bot: commands.Bot) -> None:

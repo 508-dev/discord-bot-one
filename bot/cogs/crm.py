@@ -188,6 +188,136 @@ class ContactSelectionButton(discord.ui.Button[ContactSelectionView]):
             )
 
 
+class ResumeConfirmationView(discord.ui.View):
+    """View for confirming resume upload when duplicate is detected."""
+
+    def __init__(
+        self,
+        crm_cog: "CRMCog",
+        interaction: discord.Interaction,
+        file: discord.Attachment,
+        contact_id: str,
+        contact_name: str,
+        existing_resume_id: str,
+        overwrite: bool = False,
+    ) -> None:
+        super().__init__(timeout=300)  # 5 minute timeout
+        self.crm_cog = crm_cog
+        self.original_interaction = interaction
+        self.file = file
+        self.contact_id = contact_id
+        self.contact_name = contact_name
+        self.existing_resume_id = existing_resume_id
+        self.overwrite = overwrite
+
+    @discord.ui.button(
+        label="Yes, Upload Anyway", style=discord.ButtonStyle.primary, emoji="📄"
+    )
+    async def confirm_upload(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button["ResumeConfirmationView"],
+    ) -> None:
+        """Proceed with the upload despite duplicate."""
+        await interaction.response.defer()
+
+        try:
+            # Download file content from Discord
+            file_content = await self.file.read()
+
+            # Upload file to EspoCRM
+            attachment = self.crm_cog.espo_api.upload_file(
+                file_content=file_content,
+                filename=self.file.filename,
+                related_type="Contact",
+                related_id=self.contact_id,
+                field="resume",
+            )
+
+            attachment_id = attachment.get("id")
+            if not attachment_id:
+                await interaction.followup.send("❌ Failed to upload file to CRM.")
+                return
+
+            # Update contact's resume field (use original overwrite setting)
+            if await self.crm_cog._update_contact_resume(
+                self.contact_id, attachment_id, self.overwrite
+            ):
+                # Create success embed
+                embed = discord.Embed(
+                    title="✅ Resume Uploaded Successfully",
+                    description="Resume has been uploaded and linked to the contact.",
+                    color=0x00FF00,
+                )
+                embed.add_field(name="👤 Contact", value=self.contact_name, inline=True)
+                embed.add_field(name="📄 File", value=self.file.filename, inline=True)
+                embed.add_field(
+                    name="📁 Size", value=f"{self.file.size / 1024:.1f} KB", inline=True
+                )
+
+                # Add CRM link
+                profile_url = f"{self.crm_cog.base_url}/#Contact/view/{self.contact_id}"
+                embed.add_field(
+                    name="🔗 CRM Profile",
+                    value=f"[View in CRM]({profile_url})",
+                    inline=False,
+                )
+
+                await interaction.followup.send(embed=embed)
+
+                logger.info(
+                    f"Resume uploaded for {self.contact_name} (ID: {self.contact_id}) "
+                    f"by {self.original_interaction.user.name}: {self.file.filename}"
+                )
+            else:
+                await interaction.followup.send(
+                    "⚠️ File uploaded but failed to link to contact. Please check CRM manually."
+                )
+
+        except Exception as e:
+            logger.error(f"Error during confirmed resume upload: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while uploading the resume."
+            )
+
+        # Disable all buttons
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+
+        # Update the original message
+        try:
+            if interaction.message:
+                await interaction.message.edit(view=self)
+        except discord.NotFound:
+            pass
+
+    @discord.ui.button(
+        label="No, Cancel", style=discord.ButtonStyle.secondary, emoji="❌"
+    )
+    async def cancel_upload(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button["ResumeConfirmationView"],
+    ) -> None:
+        """Cancel the upload."""
+        await interaction.response.send_message(
+            "📄 Resume upload cancelled. No changes were made.", ephemeral=True
+        )
+
+        # Disable all buttons
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+
+        # Update the original message
+        try:
+            if interaction.message:
+                await interaction.message.edit(view=self)
+        except discord.NotFound:
+            pass
+
+
 class CRMCog(commands.Cog):
     """CRM integration cog for EspoCRM operations."""
 
@@ -343,13 +473,13 @@ class CRMCog(commands.Cog):
                 resume_names = contact.get("resumeNames", {})
 
                 if resume_ids and len(resume_ids) > 0:
-                    # Use the first resume ID
-                    first_resume_id = resume_ids[0]
-                    resume_name = resume_names.get(first_resume_id, f"{name}_resume")
+                    # Use the last resume ID (newest uploaded)
+                    last_resume_id = resume_ids[-1]
+                    resume_name = resume_names.get(last_resume_id, f"{name}_resume")
                     logger.info(
-                        f"Found resume for {name}: {resume_name} (ID: {first_resume_id})"
+                        f"Found resume for {name}: {resume_name} (ID: {last_resume_id})"
                     )
-                    view.add_resume_button(name, first_resume_id)
+                    view.add_resume_button(name, last_resume_id)
                 else:
                     logger.info(f"No resumes found for {name}")
 
@@ -476,8 +606,8 @@ class CRMCog(commands.Cog):
                 )
                 return
 
-            # Use the first resume
-            resume_id = resume_ids[0]
+            # Use the last resume (newest uploaded)
+            resume_id = resume_ids[-1]
             resume_name = resume_names.get(resume_id, f"{contact_name}_resume")
 
             logger.info(
@@ -1002,6 +1132,261 @@ class CRMCog(commands.Cog):
             logger.error(f"Unexpected error in set_github_username: {e}")
             await interaction.followup.send(
                 "❌ An unexpected error occurred while setting the GitHub username."
+            )
+
+    async def _check_existing_resume(
+        self, contact_id: str, filename: str, filesize: int
+    ) -> tuple[bool, str | None]:
+        """Check if contact already has a resume with the same name and size."""
+        try:
+            # Get current contact data
+            contact_data = self.espo_api.request("GET", f"Contact/{contact_id}")
+            current_resume_ids = contact_data.get("resumeIds", [])
+
+            # Check each existing resume
+            for resume_id in current_resume_ids:
+                try:
+                    # Get attachment details
+                    attachment_data = self.espo_api.request(
+                        "GET", f"Attachment/{resume_id}"
+                    )
+
+                    # Compare filename and size
+                    if (
+                        attachment_data.get("name") == filename
+                        and attachment_data.get("size") == filesize
+                    ):
+                        return True, resume_id
+
+                except EspoAPIError:
+                    # If we can't fetch attachment details, skip it
+                    continue
+
+            return False, None
+
+        except EspoAPIError as e:
+            logger.error(f"Failed to check existing resumes: {e}")
+            return False, None
+
+    async def _update_contact_resume(
+        self, contact_id: str, attachment_id: str, overwrite: bool = False
+    ) -> bool:
+        """Update contact's resume field with the attachment ID."""
+        try:
+            # Get current contact data to preserve existing resume IDs
+            contact_data = self.espo_api.request("GET", f"Contact/{contact_id}")
+            current_resume_ids = contact_data.get("resumeIds", [])
+
+            # Handle overwrite vs append
+            if overwrite:
+                # Replace all existing resumes with just this one
+                new_resume_ids = [attachment_id]
+            else:
+                # Add new attachment ID to the end of resume IDs list
+                if attachment_id not in current_resume_ids:
+                    current_resume_ids.append(attachment_id)
+                new_resume_ids = current_resume_ids
+
+            # Update the contact with new resume IDs
+            update_data = {"resumeIds": new_resume_ids}
+
+            self.espo_api.request("PUT", f"Contact/{contact_id}", update_data)
+            return True
+        except EspoAPIError as e:
+            logger.error(f"Failed to update contact resume: {e}")
+            return False
+
+    @app_commands.command(
+        name="upload-resume",
+        description="Upload a resume file to CRM (your own or for someone else if Steering Committee+)",
+    )
+    @app_commands.describe(
+        file="Resume file to upload (PDF, DOC, DOCX)",
+        search_term="Email, name, or contact ID to find contact (optional - if not provided, uploads to your own profile)",
+        overwrite="Whether to replace all existing resumes instead of adding (default: False)",
+    )
+    async def upload_resume(
+        self,
+        interaction: discord.Interaction,
+        file: discord.Attachment,
+        search_term: str | None = None,
+        overwrite: bool = False,
+    ) -> None:
+        """Upload a resume file to the CRM.
+
+        By default, new resumes are added alongside existing ones.
+        Use overwrite=True to replace all existing resumes with this one.
+        """
+        try:
+            await interaction.response.defer(ephemeral=True)
+
+            # Validate file type
+            valid_extensions = {".pdf", ".doc", ".docx"}
+            file_extension = (
+                "." + file.filename.split(".")[-1].lower()
+                if "." in file.filename
+                else ""
+            )
+
+            if file_extension not in valid_extensions:
+                await interaction.followup.send(
+                    f"❌ Invalid file type. Please upload a PDF, DOC, or DOCX file.\nYou uploaded: `{file.filename}`"
+                )
+                return
+
+            # Validate file size (10MB limit)
+            max_size = 10 * 1024 * 1024  # 10MB in bytes
+            if file.size > max_size:
+                await interaction.followup.send(
+                    f"❌ File too large. Maximum size is 10MB.\nYour file: {file.size / (1024 * 1024):.1f}MB"
+                )
+                return
+
+            # Determine target contact
+            target_contact = None
+
+            if search_term:
+                # Uploading for someone else - requires Steering Committee+ role
+                if not hasattr(
+                    interaction.user, "roles"
+                ) or not check_user_roles_with_hierarchy(
+                    interaction.user.roles, ["Steering Committee"]
+                ):
+                    await interaction.followup.send(
+                        "❌ You must have Steering Committee role or higher to upload resumes for other people."
+                    )
+                    return
+
+                # Search for target contact
+                contacts = await self._search_contact_for_linking(search_term)
+                if not contacts:
+                    await interaction.followup.send(
+                        f"❌ No contact found for: `{search_term}`"
+                    )
+                    return
+                elif len(contacts) > 1:
+                    await interaction.followup.send(
+                        f"❌ Multiple contacts found for `{search_term}`. Please be more specific or use the contact ID."
+                    )
+                    return
+
+                target_contact = contacts[0]
+            else:
+                # Uploading own resume - find contact by Discord user ID
+                target_contact = await self._find_contact_by_discord_id(
+                    str(interaction.user.id)
+                )
+                if not target_contact:
+                    await interaction.followup.send(
+                        "❌ Your Discord account is not linked to a CRM contact. "
+                        "Please ask a Steering Committee member to link your account first."
+                    )
+                    return
+
+            contact_id = target_contact.get("id")
+            contact_name = target_contact.get("name", "Unknown")
+
+            if not contact_id:
+                await interaction.followup.send("❌ Contact ID not found.")
+                return
+
+            # Check for existing resume with same name and size
+            has_duplicate, existing_resume_id = await self._check_existing_resume(
+                contact_id, file.filename, file.size
+            )
+
+            if has_duplicate:
+                # Show confirmation dialog
+                embed = discord.Embed(
+                    title="⚠️ Duplicate Resume Detected",
+                    description=f"A resume with the same name and file size already exists for **{contact_name}**.",
+                    color=0xFFA500,
+                )
+                embed.add_field(name="📄 File", value=file.filename, inline=True)
+                embed.add_field(
+                    name="📁 Size", value=f"{file.size / 1024:.1f} KB", inline=True
+                )
+                embed.add_field(
+                    name="❓ Question",
+                    value="Do you want to upload this resume anyway? This will add it as a new resume without replacing the existing one.",
+                    inline=False,
+                )
+
+                view = ResumeConfirmationView(
+                    self,
+                    interaction,
+                    file,
+                    contact_id,
+                    contact_name,
+                    existing_resume_id or "",
+                    overwrite,
+                )
+                await interaction.followup.send(embed=embed, view=view)
+                return
+
+            # Download file content from Discord
+            file_content = await file.read()
+
+            # Upload file to EspoCRM
+            try:
+                attachment = self.espo_api.upload_file(
+                    file_content=file_content,
+                    filename=file.filename,
+                    related_type="Contact",
+                    related_id=contact_id,
+                    field="resume",
+                )
+
+                attachment_id = attachment.get("id")
+                if not attachment_id:
+                    await interaction.followup.send("❌ Failed to upload file to CRM.")
+                    return
+
+                # Update contact's resume field
+                if await self._update_contact_resume(
+                    contact_id, attachment_id, overwrite
+                ):
+                    # Create success embed
+                    embed = discord.Embed(
+                        title="✅ Resume Uploaded Successfully",
+                        description="Resume has been uploaded and linked to the contact.",
+                        color=0x00FF00,
+                    )
+                    embed.add_field(name="👤 Contact", value=contact_name, inline=True)
+                    embed.add_field(name="📄 File", value=file.filename, inline=True)
+                    embed.add_field(
+                        name="📁 Size", value=f"{file.size / 1024:.1f} KB", inline=True
+                    )
+
+                    # Add CRM link
+                    profile_url = f"{self.base_url}/#Contact/view/{contact_id}"
+                    embed.add_field(
+                        name="🔗 CRM Profile",
+                        value=f"[View in CRM]({profile_url})",
+                        inline=False,
+                    )
+
+                    await interaction.followup.send(embed=embed)
+
+                    logger.info(
+                        f"Resume uploaded for {contact_name} (ID: {contact_id}) "
+                        f"by {interaction.user.name}: {file.filename}"
+                    )
+                else:
+                    await interaction.followup.send(
+                        "⚠️ File uploaded but failed to link to contact. Please check CRM manually."
+                    )
+
+            except EspoAPIError as e:
+                logger.error(f"Failed to upload file to EspoCRM: {e}")
+                await interaction.followup.send(
+                    f"❌ Failed to upload file to CRM: {str(e)}"
+                )
+
+        except Exception as e:
+            logger.error(f"Unexpected error in upload_resume: {e}")
+            await interaction.followup.send(
+                "❌ An unexpected error occurred while uploading the resume."
             )
 
 

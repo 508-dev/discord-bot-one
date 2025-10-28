@@ -102,6 +102,41 @@ class EspoAPI:
 
         return response.content
 
+    def upload_file(
+        self,
+        file_content: bytes,
+        filename: str,
+        related_type: str = "Contact",
+        related_id: str = "",
+        field: str = "resume",
+    ) -> Dict[str, Any]:
+        """Upload a file to EspoCRM and return the attachment record."""
+        import base64
+        import mimetypes
+
+        # Determine MIME type
+        mime_type, _ = mimetypes.guess_type(filename)
+        if not mime_type:
+            mime_type = "application/octet-stream"
+
+        # Encode file content as base64 data URI
+        file_base64 = base64.b64encode(file_content).decode("utf-8")
+        data_uri = f"data:{mime_type};base64,{file_base64}"
+
+        # Prepare JSON payload
+        payload = {
+            "name": filename,
+            "type": mime_type,
+            "role": "Attachment",
+            "relatedType": related_type,
+            "relatedId": related_id,
+            "field": field,
+            "file": data_uri,
+        }
+
+        response = self.request("POST", "Attachment", payload)
+        return response
+
     def normalize_url(self, action: str) -> str:
         return self.url + "/" + action
 
