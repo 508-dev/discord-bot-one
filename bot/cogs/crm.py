@@ -591,17 +591,15 @@ class CRMCog(commands.Cog):
             contact_id = contact.get("id")
             contact_name = contact.get("name", "Unknown")
 
-            # Prepare the Discord username for storage (with ID) and display (without ID)
+            # Prepare the Discord username for storage (without ID) and display
             if hasattr(user, "discriminator") and user.discriminator != "0":
-                discord_info = f"{user.name}#{user.discriminator} (ID: {user.id})"
                 discord_display = f"{user.name}#{user.discriminator}"
             else:
-                discord_info = f"{user.name} (ID: {user.id})"
                 discord_display = f"{user.name}"
 
             # Update the contact's Discord username and user ID
             update_data = {
-                "cDiscordUsername": discord_info,
+                "cDiscordUsername": discord_display,
                 "cDiscordUserID": str(user.id),
             }
 
