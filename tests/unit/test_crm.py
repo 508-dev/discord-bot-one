@@ -311,7 +311,7 @@ class TestCRMCog:
         assert update_call[0][0] == "PUT"
         assert update_call[0][1] == "Contact/contact123"
         assert "cDiscordUsername" in update_call[0][2]
-        assert "johndoe#1234 (ID: 123456789)" in update_call[0][2]["cDiscordUsername"]
+        assert update_call[0][2]["cDiscordUsername"] == "johndoe#1234"
         assert "cDiscordUserID" in update_call[0][2]
         assert update_call[0][2]["cDiscordUserID"] == "123456789"
 
@@ -403,7 +403,7 @@ class TestCRMCog:
         # Verify update call used format without discriminator
         update_call = crm_cog.espo_api.request.call_args_list[1]
         discord_username = update_call[0][2]["cDiscordUsername"]
-        assert discord_username == "johndoe (ID: 123456789)"
+        assert discord_username == "johndoe"
         assert "#0" not in discord_username
         assert "cDiscordUserID" in update_call[0][2]
         assert update_call[0][2]["cDiscordUserID"] == "123456789"
