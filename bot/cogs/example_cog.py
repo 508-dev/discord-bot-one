@@ -6,8 +6,6 @@ it to create new cogs for the 508.dev Discord bot.
 """
 
 from discord.ext import commands
-from discord import app_commands
-import discord
 
 
 class ExampleCog(commands.Cog):
@@ -16,12 +14,12 @@ class ExampleCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    @app_commands.command(name="hello", description="Say hello and get a warm welcome!")
-    async def hello_command(self, interaction: discord.Interaction) -> None:
-        """Simple hello command example."""
-        await interaction.response.send_message(
-            f"Hello {interaction.user.mention}! Welcome to 508.dev!"
-        )
+    # @app_commands.command(name="hello", description="Say hello and get a warm welcome!")
+    # async def hello_command(self, interaction: discord.Interaction) -> None:
+    #     """Simple hello command example."""
+    #     await interaction.response.send_message(
+    #         f"Hello {interaction.user.mention}! Welcome to 508.dev!"
+    #     )
 
 
 async def setup(bot: commands.Bot) -> None:

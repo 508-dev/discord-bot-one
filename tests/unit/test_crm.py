@@ -740,6 +740,50 @@ class TestCRMCog:
         # Check that embed is sent
         assert "embed" in call_args[1]
 
+    async def test_find_contact_by_discord_id_success(self, crm_cog, mock_interaction):
+        """Test finding contact by Discord ID successfully."""
+        contact_data = {
+            "id": "contact123",
+            "name": "John Doe",
+            "emailAddress": "john@example.com",
+            "c508Email": "john@508.dev",
+            "cDiscordUsername": "johndoe#1234",
+            "cGitHubUsername": "johngithub",
+        }
+
+        crm_cog.espo_api.request.return_value = {"list": [contact_data]}
+
+        result = await crm_cog._find_contact_by_discord_id("123456789")
+
+        # Verify API call
+        crm_cog.espo_api.request.assert_called_once_with(
+            "GET",
+            "Contact",
+            {
+                "where": [
+                    {
+                        "type": "equals",
+                        "attribute": "cDiscordUserID",
+                        "value": "123456789",
+                    }
+                ],
+                "maxSize": 1,
+                "select": "id,name,emailAddress,c508Email,cDiscordUsername,cGitHubUsername",
+            },
+        )
+
+        assert result == contact_data
+
+    async def test_find_contact_by_discord_id_not_found(
+        self, crm_cog, mock_interaction
+    ):
+        """Test finding contact by Discord ID when not found."""
+        crm_cog.espo_api.request.return_value = {"list": []}
+
+        result = await crm_cog._find_contact_by_discord_id("123456789")
+
+        assert result is None
+
     @pytest.mark.asyncio
     async def test_set_github_username_success_self(self, crm_cog, mock_interaction):
         """Test successful GitHub username update for self."""
@@ -1069,6 +1113,193 @@ class TestCRMCog:
         message = call_args[0][0]
         assert "❌ An unexpected error occurred" in message
         assert "setting the GitHub username" in message
+
+    async def test_update_contact_resume_new_resume(self, crm_cog, mock_interaction):
+        """Test updating contact resume with new attachment."""
+        # Mock current contact data
+        contact_data = {"resumeIds": ["existing_resume_id"]}
+
+        crm_cog.espo_api.request.side_effect = [
+            contact_data,  # GET contact
+            {"id": "contact123"},  # PUT update
+        ]
+
+        result = await crm_cog._update_contact_resume("contact123", "new_attachment_id")
+
+        assert result is True
+        assert crm_cog.espo_api.request.call_count == 2
+
+        # Check GET call
+        get_call = crm_cog.espo_api.request.call_args_list[0]
+        assert get_call[0][0] == "GET"
+        assert get_call[0][1] == "Contact/contact123"
+
+        # Check PUT call
+        put_call = crm_cog.espo_api.request.call_args_list[1]
+        assert put_call[0][0] == "PUT"
+        assert put_call[0][1] == "Contact/contact123"
+        assert put_call[0][2]["resumeIds"] == [
+            "existing_resume_id",
+            "new_attachment_id",
+        ]
+
+    async def test_update_contact_resume_duplicate_resume(
+        self, crm_cog, mock_interaction
+    ):
+        """Test updating contact resume with duplicate attachment ID."""
+        # Mock current contact data with existing resume
+        contact_data = {"resumeIds": ["attachment_id"]}
+
+        crm_cog.espo_api.request.side_effect = [
+            contact_data,  # GET contact
+            {"id": "contact123"},  # PUT update
+        ]
+
+        result = await crm_cog._update_contact_resume(
+            "contact123", "attachment_id", False
+        )
+
+        assert result is True
+
+        # Check PUT call - should not add duplicate
+        put_call = crm_cog.espo_api.request.call_args_list[1]
+        assert put_call[0][2]["resumeIds"] == ["attachment_id"]
+
+    async def test_update_contact_resume_no_existing_resumes(
+        self, crm_cog, mock_interaction
+    ):
+        """Test updating contact resume when no existing resumes."""
+        # Mock current contact data with no resumes
+        contact_data = {"resumeIds": []}
+
+        crm_cog.espo_api.request.side_effect = [
+            contact_data,  # GET contact
+            {"id": "contact123"},  # PUT update
+        ]
+
+        result = await crm_cog._update_contact_resume("contact123", "new_attachment_id")
+
+        assert result is True
+
+        # Check PUT call
+        put_call = crm_cog.espo_api.request.call_args_list[1]
+        assert put_call[0][2]["resumeIds"] == ["new_attachment_id"]
+
+    @pytest.mark.asyncio
+    async def test_update_contact_resume_overwrite_mode(
+        self, crm_cog, mock_interaction
+    ):
+        """Test updating contact resume with overwrite mode enabled."""
+        # Mock current contact data with existing resumes
+        contact_data = {"resumeIds": ["existing_resume_1", "existing_resume_2"]}
+
+        crm_cog.espo_api.request.side_effect = [
+            contact_data,  # GET contact
+            {"id": "contact123"},  # PUT update
+        ]
+
+        result = await crm_cog._update_contact_resume(
+            "contact123", "new_attachment_id", True
+        )
+
+        assert result is True
+
+        # Check PUT call - should replace all existing resumes
+        put_call = crm_cog.espo_api.request.call_args_list[1]
+        assert put_call[0][2]["resumeIds"] == ["new_attachment_id"]
+
+    async def test_update_contact_resume_api_error(self, crm_cog, mock_interaction):
+        """Test updating contact resume with API error."""
+        crm_cog.espo_api.request.side_effect = EspoAPIError("Connection failed")
+
+        result = await crm_cog._update_contact_resume(
+            "contact123", "attachment_id", False
+        )
+
+        assert result is False
+
+    async def test_check_existing_resume_duplicate_found(
+        self, crm_cog, mock_interaction
+    ):
+        """Test checking existing resume when duplicate is found."""
+        contact_data = {"resumeIds": ["resume_id_1", "resume_id_2"]}
+        attachment_data = {
+            "id": "resume_id_1",
+            "name": "test_resume.pdf",
+            "size": 12345,
+        }
+
+        crm_cog.espo_api.request.side_effect = [
+            contact_data,  # GET contact
+            attachment_data,  # GET first attachment
+        ]
+
+        has_duplicate, resume_id = await crm_cog._check_existing_resume(
+            "contact123", "test_resume.pdf", 12345
+        )
+
+        assert has_duplicate is True
+        assert resume_id == "resume_id_1"
+
+        # Verify API calls
+        assert crm_cog.espo_api.request.call_count == 2
+        get_contact_call = crm_cog.espo_api.request.call_args_list[0]
+        assert get_contact_call[0][0] == "GET"
+        assert get_contact_call[0][1] == "Contact/contact123"
+
+        get_attachment_call = crm_cog.espo_api.request.call_args_list[1]
+        assert get_attachment_call[0][0] == "GET"
+        assert get_attachment_call[0][1] == "Attachment/resume_id_1"
+
+    async def test_check_existing_resume_no_duplicate(self, crm_cog, mock_interaction):
+        """Test checking existing resume when no duplicate is found."""
+        contact_data = {"resumeIds": ["resume_id_1"]}
+        attachment_data = {
+            "id": "resume_id_1",
+            "name": "different_resume.pdf",
+            "size": 54321,
+        }
+
+        crm_cog.espo_api.request.side_effect = [
+            contact_data,  # GET contact
+            attachment_data,  # GET attachment
+        ]
+
+        has_duplicate, resume_id = await crm_cog._check_existing_resume(
+            "contact123", "test_resume.pdf", 12345
+        )
+
+        assert has_duplicate is False
+        assert resume_id is None
+
+    async def test_check_existing_resume_no_existing_resumes(
+        self, crm_cog, mock_interaction
+    ):
+        """Test checking existing resume when contact has no resumes."""
+        contact_data = {"resumeIds": []}
+
+        crm_cog.espo_api.request.return_value = contact_data
+
+        has_duplicate, resume_id = await crm_cog._check_existing_resume(
+            "contact123", "test_resume.pdf", 12345
+        )
+
+        assert has_duplicate is False
+        assert resume_id is None
+
+        # Should only call GET contact, not any attachments
+        assert crm_cog.espo_api.request.call_count == 1
+
+    async def test_check_existing_resume_api_error(self, crm_cog, mock_interaction):
+        """Test checking existing resume with API error."""
+        crm_cog.espo_api.request.side_effect = EspoAPIError("Connection failed")
+
+        has_duplicate, resume_id = await crm_cog._check_existing_resume(
+            "contact123", "test_resume.pdf", 12345
+        )
+
+        assert has_duplicate is False
+        assert resume_id is None
 
 
 class TestResumeButtonView:
