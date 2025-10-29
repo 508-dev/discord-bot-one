@@ -859,6 +859,151 @@ class CRMCog(commands.Cog):
             for message in messages:
                 await interaction.followup.send(message)
 
+    async def _find_contact_by_discord_id(
+        self, discord_user_id: str
+    ) -> dict[str, Any] | None:
+        """Find a contact by Discord user ID."""
+        search_params = {
+            "where": [
+                {
+                    "type": "equals",
+                    "attribute": "cDiscordUserID",
+                    "value": discord_user_id,
+                }
+            ],
+            "maxSize": 1,
+            "select": "id,name,emailAddress,c508Email,cDiscordUsername,cGitHubUsername",
+        }
+
+        response = self.espo_api.request("GET", "Contact", search_params)
+        contacts = response.get("list", [])
+        return contacts[0] if contacts else None
+
+    @app_commands.command(
+        name="set-github-username",
+        description="Set GitHub username for a CRM contact (your own or someone else if Steering Committee+)",
+    )
+    @app_commands.describe(
+        github_username="GitHub username to set",
+        search_term="Email, name, or contact ID to find contact (optional - if not provided, sets your own GitHub username)",
+    )
+    async def set_github_username(
+        self,
+        interaction: discord.Interaction,
+        github_username: str,
+        search_term: str | None = None,
+    ) -> None:
+        """Set GitHub username for a CRM contact."""
+        try:
+            await interaction.response.defer(ephemeral=True)
+
+            # Clean the GitHub username (remove @ if present)
+            clean_github_username = github_username.lstrip("@")
+
+            # Determine target contact
+            target_contact = None
+
+            if search_term:
+                # Setting for someone else - requires Steering Committee+ role
+                if not hasattr(
+                    interaction.user, "roles"
+                ) or not check_user_roles_with_hierarchy(
+                    interaction.user.roles, ["Steering Committee"]
+                ):
+                    await interaction.followup.send(
+                        "❌ You must have Steering Committee role or higher to set GitHub usernames for other people."
+                    )
+                    return
+
+                # Search for target contact
+                contacts = await self._search_contact_for_linking(search_term)
+                if not contacts:
+                    await interaction.followup.send(
+                        f"❌ No contact found for: `{search_term}`"
+                    )
+                    return
+                elif len(contacts) > 1:
+                    await interaction.followup.send(
+                        f"❌ Multiple contacts found for `{search_term}`. Please be more specific or use the contact ID."
+                    )
+                    return
+
+                target_contact = contacts[0]
+            else:
+                # Setting own GitHub username - find contact by Discord user ID
+                target_contact = await self._find_contact_by_discord_id(
+                    str(interaction.user.id)
+                )
+                if not target_contact:
+                    await interaction.followup.send(
+                        "❌ Your Discord account is not linked to a CRM contact. "
+                        "Please ask a Steering Committee member to link your account first."
+                    )
+                    return
+
+            contact_id = target_contact.get("id")
+            contact_name = target_contact.get("name", "Unknown")
+
+            if not contact_id:
+                await interaction.followup.send("❌ Contact ID not found.")
+                return
+
+            # Update the contact's GitHub username
+            update_data = {"cGitHubUsername": clean_github_username}
+
+            update_response = self.espo_api.request(
+                "PUT", f"Contact/{contact_id}", update_data
+            )
+
+            if update_response:
+                # Create success embed
+                embed = discord.Embed(
+                    title="✅ GitHub Username Set",
+                    description="Successfully updated GitHub username in CRM contact",
+                    color=0x00FF00,
+                )
+                embed.add_field(
+                    name="👤 Contact", value=f"{contact_name}", inline=False
+                )
+                embed.add_field(
+                    name="📧 Email",
+                    value=f"{target_contact.get('c508Email') or target_contact.get('emailAddress', 'N/A')}",
+                    inline=True,
+                )
+                embed.add_field(
+                    name="🐙 GitHub Username",
+                    value=f"@{clean_github_username}",
+                    inline=True,
+                )
+                # Add CRM link
+                if contact_id:
+                    profile_url = f"{self.base_url}/#Contact/view/{contact_id}"
+                    embed.add_field(
+                        name="🔗 CRM Profile",
+                        value=f"[View in CRM]({profile_url})",
+                        inline=True,
+                    )
+
+                await interaction.followup.send(embed=embed)
+
+                logger.info(
+                    f"GitHub username set for {contact_name} (ID: {contact_id}) "
+                    f"to @{clean_github_username} by {interaction.user.name}"
+                )
+            else:
+                await interaction.followup.send(
+                    "❌ Failed to update contact in CRM. Please try again."
+                )
+
+        except EspoAPIError as e:
+            logger.error(f"EspoCRM API error in set_github_username: {e}")
+            await interaction.followup.send(f"❌ CRM API error: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error in set_github_username: {e}")
+            await interaction.followup.send(
+                "❌ An unexpected error occurred while setting the GitHub username."
+            )
+
 
 async def setup(bot: commands.Bot) -> None:
     """Add the CRM cog to the bot."""
