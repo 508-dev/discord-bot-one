@@ -740,6 +740,336 @@ class TestCRMCog:
         # Check that embed is sent
         assert "embed" in call_args[1]
 
+    @pytest.mark.asyncio
+    async def test_set_github_username_success_self(self, crm_cog, mock_interaction):
+        """Test successful GitHub username update for self."""
+        mock_interaction.user.id = 123456789
+        mock_interaction.user.display_name = "TestUser"
+
+        # Mock API responses
+        # First call: search for contact by Discord ID
+        search_response = {
+            "list": [
+                {
+                    "id": "contact123",
+                    "name": "Test User",
+                    "cDiscordUserID": "123456789",
+                    "cGitHubUsername": "",
+                }
+            ]
+        }
+
+        # Second call: update contact
+        update_response = {"id": "contact123"}
+
+        crm_cog.espo_api.request.side_effect = [search_response, update_response]
+
+        # Call the function (without search_term means setting for self)
+        await crm_cog.set_github_username.callback(
+            crm_cog, mock_interaction, "myusername", None
+        )
+
+        # Verify API calls
+        assert crm_cog.espo_api.request.call_count == 2
+
+        # Check search call
+        search_call = crm_cog.espo_api.request.call_args_list[0]
+        assert search_call[0][0] == "GET"
+        assert search_call[0][1] == "Contact"
+        search_params = search_call[0][2]
+        assert search_params["where"][0]["attribute"] == "cDiscordUserID"
+        assert search_params["where"][0]["value"] == "123456789"
+
+        # Check update call
+        update_call = crm_cog.espo_api.request.call_args_list[1]
+        assert update_call[0][0] == "PUT"
+        assert update_call[0][1] == "Contact/contact123"
+        assert update_call[0][2]["cGitHubUsername"] == "myusername"
+
+        # Verify success message
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        # Check if message was sent with embed
+        assert "embed" in call_args[1]
+        embed = call_args[1]["embed"]
+        assert embed.title == "✅ GitHub Username Set"
+        assert "Successfully updated GitHub username" in embed.description
+
+    @pytest.mark.asyncio
+    async def test_set_github_username_api_error(self, crm_cog, mock_interaction):
+        """Test GitHub username update with API error."""
+        mock_interaction.user.id = 123456789
+
+        # Mock API to raise an error
+        crm_cog.espo_api.request.side_effect = EspoAPIError("Connection failed")
+
+        # Call the function
+        await crm_cog.set_github_username.callback(
+            crm_cog, mock_interaction, "myusername", None
+        )
+
+        # Verify error message was sent
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        message = call_args[0][0]
+        assert "❌ CRM API error:" in message
+        assert "Connection failed" in message
+
+    @pytest.mark.asyncio
+    async def test_set_github_username_user_not_found(self, crm_cog, mock_interaction):
+        """Test GitHub username update when user not found in CRM."""
+        mock_interaction.user.id = 123456789
+        mock_interaction.user.display_name = "TestUser"
+
+        # Mock API response with empty list (no contact found)
+        search_response = {"list": []}
+
+        crm_cog.espo_api.request.return_value = search_response
+
+        # Call the function
+        await crm_cog.set_github_username.callback(
+            crm_cog, mock_interaction, "myusername", None
+        )
+
+        # Verify only one API call was made (search only, no update)
+        crm_cog.espo_api.request.assert_called_once()
+
+        # Verify error message was sent
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        message = call_args[0][0]
+        assert "❌" in message
+        assert "Discord account is not linked to a CRM contact" in message
+        assert "Steering Committee" in message
+
+    @pytest.mark.asyncio
+    async def test_set_github_username_permission_check(
+        self, crm_cog, mock_interaction, mock_member_role
+    ):
+        """Test permission check when setting GitHub username for others."""
+        # User has only Member role, not Steering Committee
+        mock_interaction.user.roles = [mock_member_role]
+
+        # Try to set GitHub username for someone else (with search_term)
+        await crm_cog.set_github_username.callback(
+            crm_cog, mock_interaction, "someusername", "john@508.dev"
+        )
+
+        # Verify no API calls were made
+        crm_cog.espo_api.request.assert_not_called()
+
+        # Verify permission error message
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        message = call_args[0][0]
+        assert "❌" in message
+        assert "Steering Committee role or higher" in message
+
+    @pytest.mark.asyncio
+    async def test_set_github_username_for_other_with_permission(
+        self, crm_cog, mock_interaction
+    ):
+        """Test setting GitHub username for another user with proper permissions."""
+        # Give user Steering Committee role
+        steering_role = Mock()
+        steering_role.name = "Steering Committee"
+        mock_interaction.user.roles = [steering_role]
+
+        # Mock API responses
+        search_response = {
+            "list": [
+                {
+                    "id": "contact456",
+                    "name": "John Doe",
+                    "c508Email": "john@508.dev",
+                    "cGitHubUsername": "",
+                }
+            ]
+        }
+        update_response = {"id": "contact456"}
+
+        crm_cog.espo_api.request.side_effect = [search_response, update_response]
+
+        # Call the function with search_term (setting for someone else)
+        await crm_cog.set_github_username.callback(
+            crm_cog, mock_interaction, "johngithub", "john@508.dev"
+        )
+
+        # Verify API calls
+        assert crm_cog.espo_api.request.call_count == 2
+
+        # Check update call has correct username
+        update_call = crm_cog.espo_api.request.call_args_list[1]
+        assert update_call[0][2]["cGitHubUsername"] == "johngithub"
+
+        # Verify success message
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        assert "embed" in call_args[1]
+        embed = call_args[1]["embed"]
+        assert "GitHub Username Set" in embed.title
+
+    @pytest.mark.asyncio
+    async def test_set_github_username_multiple_contacts_found(
+        self, crm_cog, mock_interaction
+    ):
+        """Test setting GitHub username when multiple contacts found."""
+        # Give user Steering Committee role
+        steering_role = Mock()
+        steering_role.name = "Steering Committee"
+        mock_interaction.user.roles = [steering_role]
+
+        # Mock search helper to return multiple contacts
+        with patch.object(crm_cog, "_search_contact_for_linking") as mock_search:
+            mock_search.return_value = [
+                {"id": "contact1", "name": "John Doe", "c508Email": "john1@508.dev"},
+                {"id": "contact2", "name": "John Smith", "c508Email": "john2@508.dev"},
+            ]
+
+            # Call the function with search_term
+            await crm_cog.set_github_username.callback(
+                crm_cog, mock_interaction, "johngithub", "john"
+            )
+
+            # Verify no update API call was made
+            crm_cog.espo_api.request.assert_not_called()
+
+            # Verify error message about multiple contacts
+            mock_interaction.followup.send.assert_called_once()
+            call_args = mock_interaction.followup.send.call_args
+            message = call_args[0][0]
+            assert "❌ Multiple contacts found" in message
+            assert "john" in message
+            assert "more specific" in message
+
+    @pytest.mark.asyncio
+    async def test_set_github_username_cleans_at_prefix(
+        self, crm_cog, mock_interaction
+    ):
+        """Test that @ prefix is removed from GitHub username."""
+        mock_interaction.user.id = 123456789
+
+        # Mock API responses
+        search_response = {
+            "list": [
+                {
+                    "id": "contact123",
+                    "name": "Test User",
+                    "cDiscordUserID": "123456789",
+                    "cGitHubUsername": "",
+                }
+            ]
+        }
+        update_response = {"id": "contact123"}
+
+        crm_cog.espo_api.request.side_effect = [search_response, update_response]
+
+        # Call with @ prefix in username
+        await crm_cog.set_github_username.callback(
+            crm_cog, mock_interaction, "@myusername", None
+        )
+
+        # Verify the @ was stripped in the update call
+        update_call = crm_cog.espo_api.request.call_args_list[1]
+        assert update_call[0][2]["cGitHubUsername"] == "myusername"  # @ removed
+
+        # Verify the embed shows it with @ (for display)
+        call_args = mock_interaction.followup.send.call_args
+        embed = call_args[1]["embed"]
+        github_field = [f for f in embed.fields if "GitHub" in f.name][0]
+        assert "@myusername" in github_field.value  # Display shows with @
+
+    @pytest.mark.asyncio
+    async def test_set_github_username_update_failure(self, crm_cog, mock_interaction):
+        """Test when update request returns None/False."""
+        mock_interaction.user.id = 123456789
+
+        # Mock API responses
+        search_response = {
+            "list": [
+                {
+                    "id": "contact123",
+                    "name": "Test User",
+                    "cDiscordUserID": "123456789",
+                    "cGitHubUsername": "",
+                }
+            ]
+        }
+        # Update returns None to simulate failure
+        crm_cog.espo_api.request.side_effect = [search_response, None]
+
+        # Call the function
+        await crm_cog.set_github_username.callback(
+            crm_cog, mock_interaction, "myusername", None
+        )
+
+        # Verify both API calls were made
+        assert crm_cog.espo_api.request.call_count == 2
+
+        # Verify error message was sent
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        message = call_args[0][0]
+        assert "❌ Failed to update contact in CRM" in message
+        assert "try again" in message
+
+    @pytest.mark.asyncio
+    async def test_set_github_username_contact_without_id(
+        self, crm_cog, mock_interaction
+    ):
+        """Test when contact has no ID field."""
+        mock_interaction.user.id = 123456789
+
+        # Mock API response with contact missing ID
+        search_response = {
+            "list": [
+                {
+                    # Missing "id" field
+                    "name": "Test User",
+                    "cDiscordUserID": "123456789",
+                    "cGitHubUsername": "",
+                }
+            ]
+        }
+
+        crm_cog.espo_api.request.return_value = search_response
+
+        # Call the function
+        await crm_cog.set_github_username.callback(
+            crm_cog, mock_interaction, "myusername", None
+        )
+
+        # Verify only search call was made (no update)
+        crm_cog.espo_api.request.assert_called_once()
+
+        # Verify error message was sent
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        message = call_args[0][0]
+        assert "❌ Contact ID not found" in message
+
+    @pytest.mark.asyncio
+    async def test_set_github_username_unexpected_exception(
+        self, crm_cog, mock_interaction
+    ):
+        """Test handling of unexpected exceptions."""
+        mock_interaction.user.id = 123456789
+
+        # Mock API to raise an unexpected exception
+        crm_cog.espo_api.request.side_effect = ValueError("Unexpected error occurred")
+
+        # Call the function
+        await crm_cog.set_github_username.callback(
+            crm_cog, mock_interaction, "myusername", None
+        )
+
+        # Verify error message was sent
+        mock_interaction.followup.send.assert_called_once()
+        call_args = mock_interaction.followup.send.call_args
+        message = call_args[0][0]
+        assert "❌ An unexpected error occurred" in message
+        assert "setting the GitHub username" in message
+
 
 class TestResumeButtonView:
     """Tests for ResumeButtonView class."""
