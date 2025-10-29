@@ -73,11 +73,19 @@ If you want to test with your own bot instead of the production bot:
      - ✅ `Read Message History`
      - ✅ `Add Reactions`
 
-3. **Install Bot in Your Server:**
+3. **Enable Privileged Intents:**
+   - Go to your app in Discord Developer Portal → Bot
+   - Under **Privileged Gateway Intents**, enable:
+     - ✅ `Presence Intent`
+     - ✅ `Server Members Intent`
+     - ✅ `Message Content Intent`
+   - Save changes
+
+4. **Install Bot in Your Server:**
    - Use the generated OAuth2 URL to invite the bot to your test server
    - Make sure you have admin permissions in that server
 
-4. **Get Required Values:**
+5. **Get Required Values:**
    - **Bot Token**: Discord Developer Portal → Your App → Bot → Token (keep this secret!)
    - **Channel ID**: Right-click on a Discord channel → Copy Channel ID (enable Developer Mode in Discord settings if needed)
 
@@ -116,7 +124,7 @@ If you want to test with your own bot instead of the production bot:
 
 5. **Run the bot:**
    ```bash
-   python main.py
+   uv run python main.py
    ```
 
 ## Environment Variables
