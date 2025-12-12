@@ -130,6 +130,41 @@ class KimaiAPI:
         """
         return self._request("GET", "projects")  # type: ignore[no-any-return]
 
+    def get_activities(
+        self,
+        project_id: int | None = None,
+        globals_only: bool = False,
+        order: str = "ASC",
+        order_by: str = "name",
+    ) -> list[dict[str, Any]]:
+        """
+        Get activities from Kimai.
+
+        Args:
+            project_id: Filter activities by project ID
+            globals_only: If True, fetch only global activities
+            order: Sort order - "ASC" or "DESC" (default: "ASC")
+            order_by: Field to sort by - "id", "name", or "project" (default: "name")
+
+        Returns:
+            List of activity dictionaries
+        """
+        params: dict[str, Any] = {}
+
+        if globals_only:
+            params["globals"] = "1"
+
+        if order:
+            params["order"] = order
+
+        if order_by:
+            params["orderBy"] = order_by
+
+        if project_id is not None:
+            params["project"] = project_id
+
+        return self._request("GET", "activities", params)  # type: ignore[no-any-return]
+
     def get_project_by_name(self, project_name: str) -> dict[str, Any] | None:
         """
         Find a project by name (case-insensitive search).
@@ -155,6 +190,7 @@ class KimaiAPI:
         begin: datetime | None = None,
         end: datetime | None = None,
         user: int | str = "all",
+        activities: list[int] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Get timesheet entries with optional filters.
@@ -164,6 +200,7 @@ class KimaiAPI:
             begin: Start date/time for filtering
             end: End date/time for filtering
             user: Filter by user ID (int) or 'all' for all users (default: 'all', requires 'view_other_timesheet' permission)
+            activities: Optional list of activity IDs to filter results
 
         Returns:
             List of timesheet entry dictionaries
@@ -179,7 +216,12 @@ class KimaiAPI:
         if end is not None:
             params["end"] = end.strftime("%Y-%m-%dT%H:%M:%S")
 
+        if activities is not None and len(activities) > 0:
+            params["activities[]"] = activities
+
         params["user"] = user
+        # Set to a large size to get all timesheets
+        params["size"] = 10000
 
         return self._request("GET", "timesheets", params)  # type: ignore[no-any-return]
 
@@ -337,11 +379,44 @@ class KimaiAPI:
                 "User Name": {
                     "hours": 12.5,
                     "duration_seconds": 45000,
-                    "entries": 5
+                    "entries": 5,
+                    "billed_amount": 250.0
                 }
             }
         """
-        timesheets = self.get_timesheets(project_id=project_id, begin=begin, end=end)
+        # Fetch all activities to build a mapping of activity ID to name
+        activities = self.get_activities()
+        activity_map: dict[int, str] = {
+            activity["id"]: activity.get("name", "")
+            for activity in activities
+            if "id" in activity
+        }
+
+        non_retainer_activity_ids = [
+            activity_id
+            for activity_id, name in activity_map.items()
+            if "retainer" not in name.lower()
+        ]
+
+        timesheets = self.get_timesheets(
+            project_id=project_id,
+            begin=begin,
+            end=end,
+            activities=non_retainer_activity_ids if non_retainer_activity_ids else None,
+        )
+
+        def _is_retainer_activity(activity_id: Any) -> bool:
+            """Return True if the activity id maps to a retainer activity name."""
+            if not isinstance(activity_id, int):
+                return False
+            return "retainer" in activity_map.get(activity_id, "").lower()
+
+        # Filter out activities with "Retainer" in the name
+        timesheets = [
+            entry
+            for entry in timesheets
+            if not _is_retainer_activity(entry.get("activity"))
+        ]
 
         # Get all unique user IDs from timesheets
         user_ids: set[int] = {
@@ -369,6 +444,7 @@ class KimaiAPI:
         for entry in timesheets:
             user_id_raw = entry.get("user")
             duration = entry.get("duration", 0)  # Duration in seconds
+            rate = entry.get("rate", 0)  # Billed amount for this entry
 
             if user_id_raw is None:
                 continue
@@ -386,6 +462,7 @@ class KimaiAPI:
                     "hours": 0.0,
                     "duration_seconds": 0,
                     "entries": 0,
+                    "billed_amount": 0.0,
                 }
 
             user_hours[user_name]["duration_seconds"] += duration
@@ -393,5 +470,6 @@ class KimaiAPI:
                 user_hours[user_name]["duration_seconds"] / 3600
             )
             user_hours[user_name]["entries"] += 1
+            user_hours[user_name]["billed_amount"] += float(rate)
 
         return user_hours

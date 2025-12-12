@@ -73,8 +73,18 @@ class TestKimaiCog:
 
         # Mock hours breakdown
         mock_hours = {
-            "John Doe": {"hours": 10.5, "entries": 5, "duration_seconds": 37800},
-            "Jane Smith": {"hours": 8.0, "entries": 3, "duration_seconds": 28800},
+            "John Doe": {
+                "hours": 10.5,
+                "entries": 5,
+                "duration_seconds": 37800,
+                "billed_amount": 1050.0,
+            },
+            "Jane Smith": {
+                "hours": 8.0,
+                "entries": 3,
+                "duration_seconds": 28800,
+                "billed_amount": 800.0,
+            },
         }
         kimai_cog.api.get_project_hours_by_user.return_value = mock_hours
 
@@ -421,7 +431,12 @@ class TestKimaiCog:
 
         # Create a large number of users to force chunking
         mock_hours = {
-            f"User {i}": {"hours": 10.0, "entries": 5, "duration_seconds": 36000}
+            f"User {i}": {
+                "hours": 10.0,
+                "entries": 5,
+                "duration_seconds": 36000,
+                "billed_amount": 500.0,
+            }
             for i in range(50)
         }
         kimai_cog.api.get_project_hours_by_user.return_value = mock_hours
@@ -498,9 +513,24 @@ class TestKimaiCog:
         kimai_cog.api.get_project_by_name.return_value = mock_project
 
         mock_hours = {
-            "User A": {"hours": 5.0, "entries": 2, "duration_seconds": 18000},
-            "User B": {"hours": 15.0, "entries": 3, "duration_seconds": 54000},
-            "User C": {"hours": 10.0, "entries": 1, "duration_seconds": 36000},
+            "User A": {
+                "hours": 5.0,
+                "entries": 2,
+                "duration_seconds": 18000,
+                "billed_amount": 250.0,
+            },
+            "User B": {
+                "hours": 15.0,
+                "entries": 3,
+                "duration_seconds": 54000,
+                "billed_amount": 750.0,
+            },
+            "User C": {
+                "hours": 10.0,
+                "entries": 1,
+                "duration_seconds": 36000,
+                "billed_amount": 500.0,
+            },
         }
         kimai_cog.api.get_project_hours_by_user.return_value = mock_hours
 
@@ -510,7 +540,7 @@ class TestKimaiCog:
 
         call_args = mock_interaction.followup.send.call_args
         embed = call_args[1]["embed"]
-        breakdown_field = embed.fields[1].value  # Second field is the breakdown
+        breakdown_field = embed.fields[2].value  # Third field is the breakdown
 
         # User B (15h) should appear before User C (10h) before User A (5h)
         b_pos = breakdown_field.index("User B")
