@@ -23,6 +23,7 @@ dev = [
     "types-requests>=2.32.4.20250913",
     "pre-commit>=3.7",
     "pre-commit-uv",
+    "freezegun>=1.5.5",
 ]
 
 [tool.pytest.ini_options]

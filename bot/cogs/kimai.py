@@ -14,7 +14,8 @@ import discord
 
 from bot.config import settings
 from bot.utils.kimai_api_client import KimaiAPI, KimaiAPIError
-from bot.utils.role_decorators import require_role
+from bot.utils.espo_api_client import EspoAPI, EspoAPIError
+from bot.utils.role_decorators import require_role, check_user_roles_with_hierarchy
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,8 @@ class KimaiCog(commands.Cog, name="Kimai"):
         """Initialize the Kimai cog."""
         self.bot = bot
         self.api = KimaiAPI(settings.kimai_base_url, settings.kimai_api_token)
+        api_url = settings.espo_base_url.rstrip("/") + "/api/v1"
+        self.espo_api = EspoAPI(api_url, settings.espo_api_key)
         logger.info("Kimai cog initialized")
 
     @app_commands.command(
@@ -35,10 +38,9 @@ class KimaiCog(commands.Cog, name="Kimai"):
     @app_commands.describe(
         project_name="Name of the project to query",
         month="Month in YYYY-MM format (e.g., 2024-03). Leave empty for current month.",
-        start_date="Custom start date in YYYY-MM-DD format (overrides month parameter)",
-        end_date="Custom end date in YYYY-MM-DD format (requires start_date)",
+        start_date="Custom start date in YYYY-MM-DD format (overrides month parameter).",
+        end_date="Custom end date in YYYY-MM-DD format (optional with start_date), defaults to end of month if no end_date given.",
     )
-    @require_role("Steering Committee")
     async def project_hours(
         self,
         interaction: discord.Interaction,
@@ -50,7 +52,7 @@ class KimaiCog(commands.Cog, name="Kimai"):
         """
         Get hours logged for a project with breakdown by team members.
 
-        Only accessible to Steering Committee, Admin, and Owner roles.
+        Accessible to Steering Committee+ or team leads of the project.
         """
         await interaction.response.defer(ephemeral=True)
 
@@ -72,6 +74,26 @@ class KimaiCog(commands.Cog, name="Kimai"):
             project_id = project["id"]
             project_display_name = project.get("name", project_name)
 
+            # Check permissions: Steering Committee+ OR team lead of this project
+            has_steering_role = hasattr(
+                interaction.user, "roles"
+            ) and check_user_roles_with_hierarchy(
+                interaction.user.roles, ["Steering Committee"]
+            )
+
+            # Only check team lead status if user doesn't have steering role
+            if not has_steering_role:
+                is_team_lead = await self._is_discord_user_team_lead(
+                    str(interaction.user.id), project_id
+                )
+                if not is_team_lead:
+                    await interaction.followup.send(
+                        f"❌ You don't have permission to view hours for '{project_display_name}'. "
+                        f"This command is only accessible to Steering Committee members or team leads of the project.",
+                        ephemeral=True,
+                    )
+                    return
+
             # Get hours breakdown by user
             user_hours = self.api.get_project_hours_by_user(
                 project_id=project_id, begin=begin, end=end
@@ -91,7 +113,7 @@ class KimaiCog(commands.Cog, name="Kimai"):
             # Add total summary
             embed.add_field(
                 name="Total Hours",
-                value=f"**{total_hours:.2f} hours** ({total_entries} entries)",
+                value=f"**{self._format_hours(total_hours)}** ({total_entries} entries)",
                 inline=False,
             )
 
@@ -106,7 +128,9 @@ class KimaiCog(commands.Cog, name="Kimai"):
                 for user_name, data in sorted_users:
                     hours = data["hours"]
                     entries = data["entries"]
-                    breakdown_lines.append(f"**{user_name}**: {hours:.2f}h ({entries} entries)")
+                    breakdown_lines.append(
+                        f"**{user_name}**: {self._format_hours(hours)} ({entries} entries)"
+                    )
 
                 # Discord field value limit is 1024 characters
                 breakdown_text = "\n".join(breakdown_lines)
@@ -155,28 +179,51 @@ class KimaiCog(commands.Cog, name="Kimai"):
             )
 
     @app_commands.command(
-        name="kimai-projects", description="List all available projects in Kimai"
+        name="kimai-projects",
+        description="List available projects in Kimai (all if Steering Committee+, your team lead projects otherwise)",
     )
-    @require_role("Steering Committee")
     async def list_projects(self, interaction: discord.Interaction) -> None:
         """
-        List all available projects in Kimai.
+        List available projects in Kimai.
 
-        Only accessible to Steering Committee, Admin, and Owner roles.
+        Steering Committee+ can see all projects.
+        Others can see projects they are team lead of.
         """
         await interaction.response.defer(ephemeral=True)
 
         try:
-            projects = self.api.get_projects()
+            # Check if user has Steering Committee role or higher
+            has_steering_role = hasattr(
+                interaction.user, "roles"
+            ) and check_user_roles_with_hierarchy(
+                interaction.user.roles, ["Steering Committee"]
+            )
+
+            if has_steering_role:
+                # Show all projects
+                projects = self.api.get_projects()
+                title_suffix = "All Projects"
+            else:
+                # Show only team lead projects
+                projects = await self._get_discord_user_team_lead_projects(
+                    str(interaction.user.id)
+                )
+                title_suffix = "Your Team Lead Projects"
 
             if not projects:
-                await interaction.followup.send(
-                    "No projects found in Kimai.", ephemeral=True
-                )
+                if has_steering_role:
+                    await interaction.followup.send(
+                        "No projects found in Kimai.", ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send(
+                        "You are not a team lead of any projects. If you believe this is an error, please contact a Steering Committee member.",
+                        ephemeral=True,
+                    )
                 return
 
             embed = discord.Embed(
-                title="Kimai Projects",
+                title=f"Kimai Projects - {title_suffix}",
                 description=f"Found {len(projects)} project(s)",
                 color=discord.Color.green(),
             )
@@ -193,7 +240,9 @@ class KimaiCog(commands.Cog, name="Kimai"):
                 status = "" if visible else " [Hidden]"
 
                 if customer_name:
-                    project_lines.append(f"**{name}** (Customer: {customer_name}){status}")
+                    project_lines.append(
+                        f"**{name}** (Customer: {customer_name}){status}"
+                    )
                 else:
                     project_lines.append(f"**{name}**{status}")
 
@@ -203,7 +252,9 @@ class KimaiCog(commands.Cog, name="Kimai"):
                 field_name = "Projects" if i == 0 else f"Projects (cont. {i + 1})"
                 embed.add_field(name=field_name, value=chunk, inline=False)
 
-            embed.set_footer(text="Use /kimai-project-hours to view hours for a project")
+            embed.set_footer(
+                text="Use /kimai-project-hours to view hours for a project"
+            )
 
             await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -211,6 +262,11 @@ class KimaiCog(commands.Cog, name="Kimai"):
             logger.error(f"Kimai API error in list_projects command: {e}")
             await interaction.followup.send(
                 f"Failed to retrieve projects: {str(e)}", ephemeral=True
+            )
+        except EspoAPIError as e:
+            logger.error(f"CRM API error in list_projects command: {e}")
+            await interaction.followup.send(
+                f"Failed to retrieve your CRM profile: {str(e)}", ephemeral=True
             )
         except Exception as e:
             logger.error(f"Unexpected error in list_projects command: {e}")
@@ -242,7 +298,9 @@ class KimaiCog(commands.Cog, name="Kimai"):
                 color=discord.Color.green(),
             )
             embed.add_field(name="Status", value="Connected", inline=True)
-            embed.add_field(name="Projects Found", value=str(project_count), inline=True)
+            embed.add_field(
+                name="Projects Found", value=str(project_count), inline=True
+            )
             embed.add_field(
                 name="Base URL", value=settings.kimai_base_url, inline=False
             )
@@ -269,6 +327,115 @@ class KimaiCog(commands.Cog, name="Kimai"):
                 f"An unexpected error occurred while checking status: {str(e)}",
                 ephemeral=True,
             )
+
+    async def _get_kimai_user_from_discord(
+        self, discord_user_id: str
+    ) -> dict[str, Any] | None:
+        """
+        Get Kimai user from Discord user ID via CRM linkage.
+
+        Args:
+            discord_user_id: Discord user ID
+
+        Returns:
+            Kimai user dictionary if found, None otherwise
+        """
+        try:
+            # Find CRM contact by Discord ID
+            search_params = {
+                "where": [
+                    {
+                        "type": "equals",
+                        "attribute": "cDiscordUserID",
+                        "value": discord_user_id,
+                    }
+                ],
+                "maxSize": 1,
+                "select": "id,name,c508Email",
+            }
+
+            response = self.espo_api.request("GET", "Contact", search_params)
+            contacts = response.get("list", [])
+
+            if not contacts:
+                logger.debug(f"No CRM contact found for Discord ID: {discord_user_id}")
+                return None
+
+            contact = contacts[0]
+            email = contact.get("c508Email")
+
+            if not email:
+                logger.warning(f"CRM contact {contact.get('id')} has no c508Email set")
+                return None
+
+            # Extract username from email (portion before @)
+            username = email.split("@")[0]
+
+            # Find Kimai user by username
+            kimai_user = self.api.get_user_by_username(username)
+            if not kimai_user:
+                logger.debug(f"No Kimai user found for username: {username}")
+                return None
+
+            return kimai_user
+
+        except EspoAPIError as e:
+            logger.error(
+                f"EspoCRM API error getting user from Discord ID {discord_user_id}: {e}"
+            )
+            return None
+        except KimaiAPIError as e:
+            logger.error(
+                f"Kimai API error getting user from Discord ID {discord_user_id}: {e}"
+            )
+            return None
+
+    async def _is_discord_user_team_lead(
+        self, discord_user_id: str, project_id: int
+    ) -> bool:
+        """
+        Check if a Discord user is the team lead of a project.
+
+        Args:
+            discord_user_id: Discord user ID
+            project_id: Project ID
+
+        Returns:
+            True if the user is the team lead, False otherwise
+        """
+        kimai_user = await self._get_kimai_user_from_discord(discord_user_id)
+
+        if not kimai_user:
+            return False
+
+        user_id = kimai_user.get("id")
+        if not user_id:
+            return False
+
+        return self.api.is_project_team_lead(project_id, user_id)
+
+    async def _get_discord_user_team_lead_projects(
+        self, discord_user_id: str
+    ) -> list[dict[str, Any]]:
+        """
+        Get all projects where a Discord user is the team lead.
+
+        Args:
+            discord_user_id: Discord user ID
+
+        Returns:
+            List of projects where the user is team lead
+        """
+        kimai_user = await self._get_kimai_user_from_discord(discord_user_id)
+
+        if not kimai_user:
+            return []
+
+        user_id = kimai_user.get("id")
+        if not user_id:
+            return []
+
+        return self.api.get_projects_by_team_lead(user_id)
 
     def _parse_date_range(
         self, month: str | None, start_date: str | None, end_date: str | None
@@ -298,8 +465,12 @@ class KimaiCog(commands.Cog, name="Kimai"):
                         f"Invalid end_date format: '{end_date}'. Expected YYYY-MM-DD."
                     )
             else:
-                # If no end_date, use start_date as a single day
-                end = begin.replace(hour=23, minute=59, second=59)
+                # If no end_date, use end of start_date's month
+                if begin.month == 12:
+                    end = begin.replace(year=begin.year + 1, month=1, day=1)
+                else:
+                    end = begin.replace(month=begin.month + 1, day=1)
+                end = end - timedelta(seconds=1)
 
             description = f"{begin.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}"
 
@@ -337,6 +508,21 @@ class KimaiCog(commands.Cog, name="Kimai"):
 
         return begin, end, description
 
+    def _format_hours(self, hours: float) -> str:
+        """
+        Format hours as hh:mm.
+
+        Args:
+            hours: Hours as a decimal number
+
+        Returns:
+            Formatted string in hh:mm format
+        """
+        total_minutes = int(hours * 60)
+        h = total_minutes // 60
+        m = total_minutes % 60
+        return f"{h}:{m:02d}"
+
     def _chunk_text(self, lines: list[str], max_length: int) -> list[str]:
         """
         Split lines into chunks that don't exceed max_length.
@@ -349,7 +535,7 @@ class KimaiCog(commands.Cog, name="Kimai"):
             List of text chunks
         """
         chunks = []
-        current_chunk = []
+        current_chunk: list[str] = []
         current_length = 0
 
         for line in lines:
@@ -373,4 +559,10 @@ class KimaiCog(commands.Cog, name="Kimai"):
 
 async def setup(bot: commands.Bot) -> None:
     """Setup function to add the cog to the bot."""
+    # Avoid breaking the entire bot if Kimai isn't configured
+    if not settings.kimai_base_url or not settings.kimai_api_token:
+        logger.warning(
+            "Kimai cog not loaded: missing KIMAI_BASE_URL and/or KIMAI_API_TOKEN"
+        )
+        return
     await bot.add_cog(KimaiCog(bot))
