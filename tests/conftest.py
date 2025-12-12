@@ -106,6 +106,8 @@ def mock_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ESPO_API_KEY", "test_api_key")
     monkeypatch.setenv("ESPO_BASE_URL", "https://crm.test.com")
     monkeypatch.setenv("HEALTHCHECK_PORT", "8081")  # Different port for tests
+    monkeypatch.setenv("KIMAI_BASE_URL", "https://kimai.test.com")
+    monkeypatch.setenv("KIMAI_API_TOKEN", "test_kimai_token")
 
 
 @pytest.fixture

@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     espo_api_key: str
     espo_base_url: str
 
+    # Kimai time tracking settings
+    kimai_base_url: str
+    kimai_api_token: str
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
