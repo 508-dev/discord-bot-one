@@ -99,9 +99,10 @@ class KimaiCog(commands.Cog, name="Kimai"):
                 project_id=project_id, begin=begin, end=end
             )
 
-            # Calculate total hours
+            # Calculate total hours and billed amount
             total_hours = sum(data["hours"] for data in user_hours.values())
             total_entries = sum(data["entries"] for data in user_hours.values())
+            total_billed = sum(data["billed_amount"] for data in user_hours.values())
 
             # Build response embed
             embed = discord.Embed(
@@ -114,7 +115,14 @@ class KimaiCog(commands.Cog, name="Kimai"):
             embed.add_field(
                 name="Total Hours",
                 value=f"**{self._format_hours(total_hours)}** ({total_entries} entries)",
-                inline=False,
+                inline=True,
+            )
+
+            # Add total billed amount
+            embed.add_field(
+                name="Total Billed",
+                value=f"**${total_billed:,.2f}**",
+                inline=True,
             )
 
             # Add breakdown by team member
@@ -128,8 +136,9 @@ class KimaiCog(commands.Cog, name="Kimai"):
                 for user_name, data in sorted_users:
                     hours = data["hours"]
                     entries = data["entries"]
+                    billed = data["billed_amount"]
                     breakdown_lines.append(
-                        f"**{user_name}**: {self._format_hours(hours)} ({entries} entries)"
+                        f"**{user_name}**: {self._format_hours(hours)} ({entries} entries) - ${billed:,.2f}"
                     )
 
                 # Discord field value limit is 1024 characters

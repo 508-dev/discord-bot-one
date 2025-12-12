@@ -268,6 +268,21 @@ class TestKimaiAPI:
             call_args = mock_request.call_args
             assert call_args[1]["params"]["user"] == 10
 
+    def test_get_timesheets_with_activity_filter(self, kimai_api):
+        """Test get_timesheets with activity filters."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.content = b"[]"
+        mock_response.json.return_value = []
+
+        with patch.object(
+            kimai_api._session, "request", return_value=mock_response
+        ) as mock_request:
+            kimai_api.get_timesheets(activities=[1, 2, 3])
+
+            call_args = mock_request.call_args
+            assert call_args[1]["params"]["activities[]"] == [1, 2, 3]
+
     def test_get_users(self, kimai_api):
         """Test get_users method."""
         mock_response = Mock()
@@ -283,112 +298,228 @@ class TestKimaiAPI:
 
     def test_get_project_hours_by_user(self, kimai_api):
         """Test get_project_hours_by_user method."""
-        # Mock get_timesheets to return timesheet data
-        with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
-            mock_timesheets.return_value = [
-                {"user": 1, "duration": 3600},  # 1 hour
-                {"user": 1, "duration": 7200},  # 2 hours
-                {"user": 2, "duration": 1800},  # 0.5 hours
+        # Mock get_activities
+        with patch.object(kimai_api, "get_activities") as mock_activities:
+            mock_activities.return_value = [
+                {"id": 10, "name": "Development"},
             ]
 
-            # Mock get_user_by_id to return user data
-            def mock_get_user_by_id(user_id):
-                if user_id == 1:
-                    return {"id": 1, "alias": "John Doe"}
-                elif user_id == 2:
-                    return {"id": 2, "username": "jane"}
-                return None
+            # Mock get_timesheets to return timesheet data
+            with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
+                mock_timesheets.return_value = [
+                    {
+                        "user": 1,
+                        "duration": 3600,
+                        "rate": 100,
+                        "activity": 10,
+                    },  # 1 hour, billed $100
+                    {
+                        "user": 1,
+                        "duration": 7200,
+                        "rate": 200,
+                        "activity": 10,
+                    },  # 2 hours, billed $200
+                    {
+                        "user": 2,
+                        "duration": 1800,
+                        "rate": 75,
+                        "activity": 10,
+                    },  # 0.5 hours, billed $75
+                ]
 
-            with patch.object(
-                kimai_api, "get_user_by_id", side_effect=mock_get_user_by_id
-            ):
-                result = kimai_api.get_project_hours_by_user(project_id=5)
+                # Mock get_user_by_id to return user data
+                def mock_get_user_by_id(user_id):
+                    if user_id == 1:
+                        return {"id": 1, "alias": "John Doe"}
+                    elif user_id == 2:
+                        return {"id": 2, "username": "jane"}
+                    return None
 
-                assert len(result) == 2
-                assert "John Doe" in result
-                assert "jane" in result
-                assert result["John Doe"]["hours"] == 3.0  # 3 hours total
-                assert result["John Doe"]["entries"] == 2
-                assert result["jane"]["hours"] == 0.5
-                assert result["jane"]["entries"] == 1
+                with patch.object(
+                    kimai_api, "get_user_by_id", side_effect=mock_get_user_by_id
+                ):
+                    result = kimai_api.get_project_hours_by_user(project_id=5)
+
+                    assert len(result) == 2
+                    assert "John Doe" in result
+                    assert "jane" in result
+                    assert result["John Doe"]["hours"] == 3.0  # 3 hours total
+                    assert result["John Doe"]["entries"] == 2
+                    assert result["John Doe"]["billed_amount"] == 300.0  # $100 + $200
+                    assert result["jane"]["hours"] == 0.5
+                    assert result["jane"]["entries"] == 1
+                    assert result["jane"]["billed_amount"] == 75.0  # $75
 
     def test_get_project_hours_by_user_with_dates(self, kimai_api):
         """Test get_project_hours_by_user with date filters."""
         begin = datetime(2024, 1, 1)
         end = datetime(2024, 1, 31)
 
-        with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
-            mock_timesheets.return_value = []
+        with patch.object(kimai_api, "get_activities") as mock_activities:
+            mock_activities.return_value = []
 
-            result = kimai_api.get_project_hours_by_user(
-                project_id=5, begin=begin, end=end
-            )
+            with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
+                mock_timesheets.return_value = []
 
-            assert len(result) == 0
-            # Verify that timesheets was called with date parameters
-            mock_timesheets.assert_called_once_with(project_id=5, begin=begin, end=end)
+                result = kimai_api.get_project_hours_by_user(
+                    project_id=5, begin=begin, end=end
+                )
+
+                assert len(result) == 0
+                # Verify that timesheets was called with date parameters
+                mock_timesheets.assert_called_once_with(
+                    project_id=5, begin=begin, end=end, activities=None
+                )
 
     def test_get_project_hours_by_user_uses_alias(self, kimai_api):
         """Test that get_project_hours_by_user prefers alias over username."""
-        with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
-            mock_timesheets.return_value = [{"user": 1, "duration": 3600}]
+        with patch.object(kimai_api, "get_activities") as mock_activities:
+            mock_activities.return_value = [{"id": 10, "name": "Development"}]
 
-            with patch.object(kimai_api, "get_user_by_id") as mock_get_user:
-                mock_get_user.return_value = {
-                    "id": 1,
-                    "alias": "John Doe",
-                    "username": "john",
-                }
+            with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
+                mock_timesheets.return_value = [
+                    {"user": 1, "duration": 3600, "rate": 50, "activity": 10}
+                ]
 
-                result = kimai_api.get_project_hours_by_user(project_id=5)
+                with patch.object(kimai_api, "get_user_by_id") as mock_get_user:
+                    mock_get_user.return_value = {
+                        "id": 1,
+                        "alias": "John Doe",
+                        "username": "john",
+                    }
 
-                # Should use alias, not username
-                assert "John Doe" in result
-                assert "john" not in result
+                    result = kimai_api.get_project_hours_by_user(project_id=5)
+
+                    # Should use alias, not username
+                    assert "John Doe" in result
+                    assert "john" not in result
+                    assert result["John Doe"]["billed_amount"] == 50.0
 
     def test_get_project_hours_by_user_fallback_to_username(self, kimai_api):
         """Test that get_project_hours_by_user falls back to username if no alias."""
-        with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
-            mock_timesheets.return_value = [{"user": 1, "duration": 3600}]
+        with patch.object(kimai_api, "get_activities") as mock_activities:
+            mock_activities.return_value = [{"id": 10, "name": "Development"}]
 
-            with patch.object(kimai_api, "get_user_by_id") as mock_get_user:
-                mock_get_user.return_value = {"id": 1, "username": "john"}
+            with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
+                mock_timesheets.return_value = [
+                    {"user": 1, "duration": 3600, "rate": 50, "activity": 10}
+                ]
 
-                result = kimai_api.get_project_hours_by_user(project_id=5)
+                with patch.object(kimai_api, "get_user_by_id") as mock_get_user:
+                    mock_get_user.return_value = {"id": 1, "username": "john"}
 
-                # Should use username since no alias
-                assert "john" in result
+                    result = kimai_api.get_project_hours_by_user(project_id=5)
+
+                    # Should use username since no alias
+                    assert "john" in result
+                    assert result["john"]["billed_amount"] == 50.0
 
     def test_get_project_hours_by_user_unknown_user(self, kimai_api):
         """Test get_project_hours_by_user with unknown user ID."""
-        with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
-            mock_timesheets.return_value = [{"user": 999, "duration": 3600}]
+        with patch.object(kimai_api, "get_activities") as mock_activities:
+            mock_activities.return_value = [{"id": 10, "name": "Development"}]
 
-            with patch.object(kimai_api, "get_user_by_id") as mock_get_user:
-                mock_get_user.return_value = None  # User not found
+            with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
+                mock_timesheets.return_value = [
+                    {"user": 999, "duration": 3600, "rate": 75, "activity": 10}
+                ]
 
-                result = kimai_api.get_project_hours_by_user(project_id=5)
+                with patch.object(kimai_api, "get_user_by_id") as mock_get_user:
+                    mock_get_user.return_value = None  # User not found
 
-                # Should create entry with "User 999"
-                assert "User 999" in result
-                assert result["User 999"]["hours"] == 1.0
+                    result = kimai_api.get_project_hours_by_user(project_id=5)
+
+                    # Should create entry with "User 999"
+                    assert "User 999" in result
+                    assert result["User 999"]["hours"] == 1.0
+                    assert result["User 999"]["billed_amount"] == 75.0
 
     def test_get_project_hours_by_user_skips_null_user(self, kimai_api):
         """Test that entries with null user are skipped."""
-        with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
-            mock_timesheets.return_value = [
-                {"user": None, "duration": 3600},
-                {"user": 1, "duration": 1800},
+        with patch.object(kimai_api, "get_activities") as mock_activities:
+            mock_activities.return_value = [{"id": 10, "name": "Development"}]
+
+            with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
+                mock_timesheets.return_value = [
+                    {"user": None, "duration": 3600, "rate": 100, "activity": 10},
+                    {"user": 1, "duration": 1800, "rate": 50, "activity": 10},
+                ]
+
+                with patch.object(kimai_api, "get_user_by_id") as mock_get_user:
+                    mock_get_user.return_value = {"id": 1, "username": "john"}
+
+                    result = kimai_api.get_project_hours_by_user(project_id=5)
+
+                    # Should only have one user (null user is skipped)
+                    assert len(result) == 1
+                    assert "john" in result
+                    assert result["john"]["billed_amount"] == 50.0  # $50 total
+
+    def test_get_project_hours_by_user_filters_retainer(self, kimai_api):
+        """Test that activities with 'Retainer' in the name are filtered out."""
+        # Mock activities with IDs and names
+        with patch.object(kimai_api, "get_activities") as mock_activities:
+            mock_activities.return_value = [
+                {"id": 10, "name": "Development"},
+                {"id": 20, "name": "Engineering Retainer"},
+                {"id": 30, "name": "Design Retainer"},
+                {"id": 40, "name": "Support retainer"},
+                {"id": 50, "name": "Code Review"},
             ]
 
-            with patch.object(kimai_api, "get_user_by_id") as mock_get_user:
-                mock_get_user.return_value = {"id": 1, "username": "john"}
+            with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
+                # Timesheets now reference activity IDs, not objects
+                mock_timesheets.return_value = [
+                    {
+                        "user": 1,
+                        "duration": 3600,
+                        "rate": 100,
+                        "activity": 10,  # Development
+                    },
+                    {
+                        "user": 1,
+                        "duration": 7200,
+                        "rate": 200,
+                        "activity": 20,  # Engineering Retainer - should be filtered
+                    },
+                    {
+                        "user": 1,
+                        "duration": 1800,
+                        "rate": 90,
+                        "activity": 30,  # Design Retainer - should be filtered
+                    },
+                    {
+                        "user": 1,
+                        "duration": 900,
+                        "rate": 45,
+                        "activity": 40,  # Support retainer - should be filtered
+                    },
+                    {
+                        "user": 2,
+                        "duration": 1800,
+                        "rate": 75,
+                        "activity": 50,  # Code Review
+                    },
+                ]
 
-                result = kimai_api.get_project_hours_by_user(project_id=5)
+                with patch.object(kimai_api, "get_user_by_id") as mock_get_user:
+                    mock_get_user.side_effect = lambda uid: (
+                        {"id": 1, "alias": "John Doe"}
+                        if uid == 1
+                        else {"id": 2, "username": "jane"}
+                    )
 
-                # Should only have one user (null user is skipped)
-                assert len(result) == 1
-                assert "john" in result
+                    result = kimai_api.get_project_hours_by_user(project_id=5)
+
+                    mock_timesheets.assert_called_once_with(
+                        project_id=5, begin=None, end=None, activities=[10, 50]
+                    )
+                    # Should only count non-retainer entries
+                    assert result["John Doe"]["hours"] == 1.0  # Only Development entry
+                    assert result["John Doe"]["entries"] == 1  # Only 1 entry
+                    assert result["John Doe"]["billed_amount"] == 100.0  # Only $100
+                    assert result["jane"]["hours"] == 0.5
+                    assert result["jane"]["billed_amount"] == 75.0
 
     def test_get_user_by_id_found(self, kimai_api):
         """Test get_user_by_id when user is found in cache."""
