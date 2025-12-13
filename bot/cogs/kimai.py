@@ -137,8 +137,14 @@ class KimaiCog(commands.Cog, name="Kimai"):
                     hours = data["hours"]
                     entries = data["entries"]
                     billed = data["billed_amount"]
+                    zero_rate_entries = data.get("zero_rate_entries", 0)
+                    zero_rate_note = (
+                        f" — {zero_rate_entries} $0 record(s) found"
+                        if zero_rate_entries > 0
+                        else ""
+                    )
                     breakdown_lines.append(
-                        f"**{user_name}**: {self._format_hours(hours)} ({entries} entries) - ${billed:,.2f}"
+                        f"**{user_name}**: {self._format_hours(hours)} ({entries} entries) - ${billed:,.2f}{zero_rate_note}"
                     )
 
                 # Discord field value limit is 1024 characters

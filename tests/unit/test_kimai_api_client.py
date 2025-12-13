@@ -414,6 +414,27 @@ class TestKimaiAPI:
                     assert "john" in result
                     assert result["john"]["billed_amount"] == 50.0
 
+    def test_get_project_hours_by_user_flags_zero_rate_entries(self, kimai_api):
+        """Ensure zero-rate timesheets are counted for warning purposes."""
+        with patch.object(kimai_api, "get_activities") as mock_activities:
+            mock_activities.return_value = [{"id": 10, "name": "Development"}]
+
+            with patch.object(kimai_api, "get_timesheets") as mock_timesheets:
+                mock_timesheets.return_value = [
+                    {"user": 1, "duration": 3600, "rate": 0, "activity": 10},
+                    {"user": 1, "duration": 3600, "rate": 0.0, "activity": 10},
+                    {"user": 1, "duration": 3600, "rate": 100, "activity": 10},
+                ]
+
+                with patch.object(kimai_api, "get_user_by_id") as mock_get_user:
+                    mock_get_user.return_value = {"id": 1, "username": "john"}
+
+                    result = kimai_api.get_project_hours_by_user(project_id=5)
+
+                    assert result["john"]["entries"] == 3
+                    assert result["john"]["zero_rate_entries"] == 2
+                    assert result["john"]["billed_amount"] == 100.0
+
     def test_get_project_hours_by_user_unknown_user(self, kimai_api):
         """Test get_project_hours_by_user with unknown user ID."""
         with patch.object(kimai_api, "get_activities") as mock_activities:

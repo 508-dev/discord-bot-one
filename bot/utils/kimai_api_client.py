@@ -444,7 +444,7 @@ class KimaiAPI:
         for entry in timesheets:
             user_id_raw = entry.get("user")
             duration = entry.get("duration", 0)  # Duration in seconds
-            rate = entry.get("rate", 0)  # Billed amount for this entry
+            rate_raw = entry.get("rate", 0)  # Billed amount for this entry
 
             if user_id_raw is None:
                 continue
@@ -463,13 +463,17 @@ class KimaiAPI:
                     "duration_seconds": 0,
                     "entries": 0,
                     "billed_amount": 0.0,
+                    "zero_rate_entries": 0,
                 }
 
+            rate = float(rate_raw) if rate_raw is not None else 0.0
             user_hours[user_name]["duration_seconds"] += duration
             user_hours[user_name]["hours"] = (
                 user_hours[user_name]["duration_seconds"] / 3600
             )
             user_hours[user_name]["entries"] += 1
-            user_hours[user_name]["billed_amount"] += float(rate)
+            user_hours[user_name]["billed_amount"] += rate
+            if rate == 0:
+                user_hours[user_name]["zero_rate_entries"] += 1
 
         return user_hours
